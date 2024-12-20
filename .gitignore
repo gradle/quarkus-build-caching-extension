@@ -1,0 +1,10 @@
+.idea/
+.gradle/
+.quarkus/
+.tmp/
+out/
+build/
+target/
+*.DS_Store
+*.iml
+.develocity/
