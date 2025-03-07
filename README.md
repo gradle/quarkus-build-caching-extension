@@ -157,11 +157,11 @@ Some additional outputs can be configured if necessary (when using the [quarkus-
 
 Directories can be added (csv list):
 ```properties
-DEVELOCITY_QUARKUS_KEY_EXTRA_OUTPUT_DIRS=helm
+DEVELOCITY_QUARKUS_EXTRA_OUTPUT_DIRS=helm
 ```
 or Specific files (csv list):
 ```properties
-DEVELOCITY_QUARKUS_KEY_EXTRA_OUTPUT_FILES=helm/kubernetes/my-project/Chart.yaml,helm/kubernetes/my-project/values.yaml
+DEVELOCITY_QUARKUS_EXTRA_OUTPUT_FILES=helm/kubernetes/my-project/Chart.yaml,helm/kubernetes/my-project/values.yaml
 ```
 
 #### Build strategy
