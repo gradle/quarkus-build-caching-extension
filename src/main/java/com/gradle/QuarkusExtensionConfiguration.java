@@ -32,6 +32,8 @@ final class QuarkusExtensionConfiguration {
     // Default dump config file suffix
     private static final String DEVELOCITY_QUARKUS_DEFAULT_DUMP_CONFIG_SUFFIX = "config-dump";
 
+    private static final String DEVELOCITY_QUARKUS_KEY_DUMP_CONFIG_INTERMEDIATE_DIRECTORY = "DEVELOCITY_QUARKUS_DUMP_CONFIG_INTERMEDIATE_DIRECTORY";
+
     // Extra output dirs key
     private static final String DEVELOCITY_QUARKUS_KEY_EXTRA_OUTPUT_DIRS = "DEVELOCITY_QUARKUS_EXTRA_OUTPUT_DIRS";
 
@@ -62,6 +64,7 @@ final class QuarkusExtensionConfiguration {
         configuration.setProperty(DEVELOCITY_QUARKUS_KEY_BUILD_PROFILE, DEVELOCITY_QUARKUS_DEFAULT_BUILD_PROFILE);
         configuration.setProperty(DEVELOCITY_QUARKUS_KEY_DUMP_CONFIG_PREFIX, DEVELOCITY_QUARKUS_DEFAULT_DUMP_CONFIG_PREFIX);
         configuration.setProperty(DEVELOCITY_QUARKUS_KEY_DUMP_CONFIG_SUFFIX, DEVELOCITY_QUARKUS_DEFAULT_DUMP_CONFIG_SUFFIX);
+        configuration.setProperty(DEVELOCITY_QUARKUS_KEY_DUMP_CONFIG_INTERMEDIATE_DIRECTORY, "");
         configuration.setProperty(DEVELOCITY_QUARKUS_KEY_CONFIG_FILE, "");
         configuration.setProperty(DEVELOCITY_QUARKUS_KEY_EXTRA_OUTPUT_DIRS, "");
         configuration.setProperty(DEVELOCITY_QUARKUS_KEY_EXTRA_OUTPUT_FILES, "");
@@ -117,11 +120,14 @@ final class QuarkusExtensionConfiguration {
      * @return dump config file name
      */
     String getDumpConfigFileName() {
-        return String.format(".quarkus/%s-%s-%s",
-                configuration.getProperty(DEVELOCITY_QUARKUS_KEY_DUMP_CONFIG_PREFIX),
-                configuration.getProperty(DEVELOCITY_QUARKUS_KEY_BUILD_PROFILE),
-                configuration.getProperty(DEVELOCITY_QUARKUS_KEY_DUMP_CONFIG_SUFFIX)
-        );
+        String intermediateDir = configuration.getProperty(DEVELOCITY_QUARKUS_KEY_DUMP_CONFIG_INTERMEDIATE_DIRECTORY);
+        String prefix = configuration.getProperty(DEVELOCITY_QUARKUS_KEY_DUMP_CONFIG_PREFIX);
+        String profile = configuration.getProperty(DEVELOCITY_QUARKUS_KEY_BUILD_PROFILE);
+        String suffix = configuration.getProperty(DEVELOCITY_QUARKUS_KEY_DUMP_CONFIG_SUFFIX);
+        if (intermediateDir.isEmpty()) {
+            return String.format(".quarkus/%s-%s-%s", prefix, profile, suffix);
+        }
+        return String.format(".quarkus/%s/%s-%s-%s", intermediateDir, prefix, profile, suffix);
     }
 
     /**
