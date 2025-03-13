@@ -55,7 +55,7 @@ Reference the extension in `.mvn/extensions.xml` (this extension requires the de
     <extension>
         <groupId>com.gradle</groupId>
         <artifactId>quarkus-build-caching-extension</artifactId>
-        <version>1.8</version>
+        <version>1.9</version>
     </extension>
 </extensions>
 ```
@@ -152,14 +152,17 @@ DEVELOCITY_QUARKUS_DUMP_CONFIG_SUFFIX=config-dump-ci
 ```
 
 If the default values are overridden, the Quarkus properties need to be set accordingly:
-```properties
+```xml
 <quarkus.config-tracking.file-suffix>-config-dump-ci</quarkus.config-tracking.file-suffix>
 <quarkus.recorded-build-config.file>.quarkus/quarkus-prod-config-dump-ci</quarkus.recorded-build-config.file>
 ```
 
-It is also possible to use subfolders in `.quarkus` to organize the different dump-config files. For instance, to have the dump-config at `.quarkus/ci/quarkus-prod-config-dump` (Quarkus configuration has to be aligned in such case):
+It is also possible to use subfolders in `.quarkus` to organize the different dump-config files. For instance, to have the dump-config at `.quarkus/ci/quarkus-prod-config-dump`:
 ```properties
 DEVELOCITY_QUARKUS_DUMP_CONFIG_SUBFOLDER=ci
+```
+Quarkus configuration has to be aligned in such case to store the dump-config in the subfolder:
+```xml
 <quarkus.config-tracking.directory>.quarkus/ci</quarkus.config-tracking.directory>
 ```
 
