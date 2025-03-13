@@ -151,6 +151,18 @@ DEVELOCITY_QUARKUS_DUMP_CONFIG_PREFIX=quarkus
 DEVELOCITY_QUARKUS_DUMP_CONFIG_SUFFIX=config-dump-ci
 ```
 
+If the default values are overridden, the Quarkus properties need to be set accordingly:
+```properties
+<quarkus.config-tracking.file-suffix>-config-dump-ci</quarkus.config-tracking.file-suffix>
+<quarkus.recorded-build-config.file>.quarkus/quarkus-prod-config-dump-ci</quarkus.recorded-build-config.file>
+```
+
+It is also possible to use subfolders in `.quarkus` to organize the different dump-config files. For instance, to have the dump-config at `.quarkus/ci/quarkus-prod-config-dump` (Quarkus configuration has to be aligned in such case):
+```properties
+DEVELOCITY_QUARKUS_DUMP_CONFIG_SUBFOLDER=ci
+<quarkus.config-tracking.directory>.quarkus/ci</quarkus.config-tracking.directory>
+```
+
 #### Extra outputs
 
 Some additional outputs can be configured if necessary (when using the [quarkus-helm](https://quarkus.io/blog/quarkus-helm/#getting-started-with-the-quarkus-helm-extension) extension for instance). The paths are relative to the `target` folder.
