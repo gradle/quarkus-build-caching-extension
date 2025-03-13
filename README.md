@@ -157,7 +157,7 @@ If the default values are overridden, the Quarkus properties need to be set acco
 <quarkus.recorded-build-config.file>.quarkus/quarkus-prod-config-dump-ci</quarkus.recorded-build-config.file>
 ```
 
-It is also possible to use subfolders in `.quarkus` to organize the different dump-config files. For instance, to have the dump-config at `.quarkus/ci/quarkus-prod-config-dump`:
+It is also possible to use subfolders in `.quarkus` to organize the different dump-config files. For instance, to have the dump-config at `.quarkus/ci/quarkus-prod-config-dump` (Quarkus configuration has to be aligned in such case):
 ```properties
 DEVELOCITY_QUARKUS_DUMP_CONFIG_SUBFOLDER=ci
 <quarkus.config-tracking.directory>.quarkus/ci</quarkus.config-tracking.directory>
