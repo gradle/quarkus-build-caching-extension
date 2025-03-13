@@ -1,3 +1,6 @@
+### 1.9
+- Add support for subfolders in `.quarkus` to store configuration dump
+
 ### 1.8
 - Add support for Quarkus `BuildMojo.attachSboms` parameter introduced in Quarkus 3.14.0
 
