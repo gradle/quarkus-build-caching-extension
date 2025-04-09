@@ -50,7 +50,7 @@ Reference the extension in `.mvn/extensions.xml` (this extension requires the de
     <extension>
         <groupId>com.gradle</groupId>
         <artifactId>develocity-maven-extension</artifactId>
-        <version>1.23.2</version>
+        <version>2.0</version>
     </extension>
     <extension>
         <groupId>com.gradle</groupId>
