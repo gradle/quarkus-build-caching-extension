@@ -33,14 +33,6 @@
             <id>Documentation</id>
             <url>https://github.com/gradle/quarkus-build-caching-extension</url>
         </site>
-        <snapshotRepository>
-            <id>ossrh</id>
-            <url>https://s01.oss.sonatype.org/content/repositories/snapshots</url>
-        </snapshotRepository>
-        <repository>
-            <id>ossrh</id>
-            <url>https://s01.oss.sonatype.org/service/local/staging/deploy/maven2</url>
-        </repository>
     </distributionManagement>
 
     <developers>
@@ -212,6 +204,18 @@
                         </executions>
                         <configuration>
                             <skipNoKey>false</skipNoKey>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                        <version>0.7.0</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <publishingServerId>ossrh</publishingServerId>
+                            <autoPublish>true</autoPublish>
+                            <waitUntil>published</waitUntil>
+                            <deploymentName>Quarkus build caching extension</deploymentName>
                         </configuration>
                     </plugin>
                 </plugins>
