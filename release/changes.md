@@ -1,3 +1,9 @@
+### 1.11
+- Adjust Maven Central publication follow up sunset ossrh protocol
+
+### 1.10
+- Add support for Quarkus `BuildMojo.reloadPoms` parameter introduced in Quarkus 3.23.0
+
 ### 1.9
 - Add support for subfolders in `.quarkus` to store configuration dump
 
