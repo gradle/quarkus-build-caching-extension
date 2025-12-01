@@ -1,3 +1,6 @@
+### 1.12
+- Add support for fast-jar package type
+
 ### 1.11
 - Adjust Maven Central publication follow up sunset ossrh protocol
 

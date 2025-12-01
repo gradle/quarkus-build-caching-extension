@@ -39,7 +39,7 @@ final class QuarkusBuildCache {
     private static final String QUARKUS_CONFIG_KEY_JAVA_HOME = "quarkus.native.java-home";
     private static final String PACKAGE_NATIVE = "native";
     // Quarkus' cacheable package types
-    private static final List<String> QUARKUS_CACHEABLE_JAR_TYPES = Arrays.asList("jar", "legacy-jar", "uber-jar");
+    private static final List<String> QUARKUS_CACHEABLE_JAR_TYPES = Arrays.asList("jar", "legacy-jar", "uber-jar", "fast-jar");
 
     // Quarkus' properties which are considered as file inputs
     private static final List<String> QUARKUS_KEYS_AS_FILE_INPUTS = Arrays.asList("quarkus.docker.dockerfile-native-path", "quarkus.docker.dockerfile-jvm-path", "quarkus.openshift.jvm-dockerfile", "quarkus.openshift.native-dockerfile");
@@ -325,6 +325,7 @@ final class QuarkusBuildCache {
             String quarkusExeFileName = TARGET_DIR + context.getProject().getBuild().getFinalName() + "-runner";
             String quarkusJarFileName = TARGET_DIR + context.getProject().getBuild().getFinalName() + ".jar";
             String quarkusUberJarFileName = TARGET_DIR + context.getProject().getBuild().getFinalName() + "-runner.jar";
+            String quarkusFastJarDirectoryName = TARGET_DIR + "quarkus-app";
             String quarkusArtifactProperties = TARGET_DIR + QUARKUS_ARTIFACT_PROPERTIES_FILE_NAME;
 
             outputs.cacheable("this plugin has CPU-bound goals with well-defined inputs and outputs");
@@ -332,6 +333,7 @@ final class QuarkusBuildCache {
             outputs.file("quarkusJar", quarkusJarFileName);
             outputs.file("quarkusUberJar", quarkusUberJarFileName);
             outputs.file("quarkusArtifactProperties", quarkusArtifactProperties);
+            outputs.directory("quarkusFastJar", quarkusFastJarDirectoryName);
 
             extraOutputDirs.forEach(extraOutput -> {
                 if(!extraOutput.isEmpty()) {
