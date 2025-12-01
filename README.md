@@ -28,7 +28,7 @@ Quarkus 3.2.4 and above which brings [track-config-changes goal](https://quarkus
 ## Limitations
 
 ### Supported package types
-Only the `native`, `uber-jar`, `jar` and `legacy-jar` [packaging types](https://quarkus.io/guides/maven-tooling#quarkus-package-pkg-package-config_quarkus.package.type) can be made cacheable
+Only the `native`, `uber-jar`, `jar`, `fast-jar` and `legacy-jar` [packaging types](https://quarkus.io/guides/maven-tooling#quarkus-package-pkg-package-config_quarkus.package.type) can be made cacheable
 
 ### Build strategy
 By default, the `native` packaging is cacheable only if the in-container build strategy (`quarkus.native.container-build=true`) is configured along with a fixed build image (`quarkus.native.builder-image`).
