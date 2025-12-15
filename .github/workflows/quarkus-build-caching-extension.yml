@@ -29,7 +29,7 @@ jobs:
           DEVELOCITY_ACCESS_KEY: ${{ secrets.DV_SOLUTIONS_ACCESS_KEY }}
       - name: Upload integration tests reports (on failure only)
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: Integration tests logs
           path: |
