@@ -1,4 +1,6 @@
 name: Verify Quarkus Build Caching Extension
+permissions:
+  contents: read
 
 on:
   schedule:
