@@ -7,6 +7,18 @@
   ],
   "packageRules": [
     {
+      "matchFileNames": ["src/it/quarkus-latest/**"],
+      "matchPackageNames": ["io.quarkus:quarkus-bom", "io.quarkus:quarkus-maven-plugin"],
+      "enabled": false,
+      "description": "Disable Renovate for quarkus-latest integration test (uses 999-SNAPSHOT)"
+    },
+    {
+      "matchFileNames": ["src/it/quarkus-3.8/**"],
+      "matchPackageNames": ["io.quarkus:quarkus-bom", "io.quarkus:quarkus-maven-plugin"],
+      "allowedVersions": "/^3\\.8\\./",
+      "description": "Lock Quarkus dependencies to 3.8.x patch versions only"
+    },
+    {
       "matchManagers": ["maven"],
       "groupName": "Maven dependencies"
     },
