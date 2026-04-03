@@ -5,6 +5,16 @@
     "github>gradle/renovate-agent//presets/dv-automerge-minor.json5",
     ":disableDependencyDashboard"
   ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "fileMatch": ["README\\.md$"],
+      "matchStrings": ["develocity-maven-extension</artifactId>\\s*<version>(?<currentValue>[^<]+)</version>"],
+      "depNameTemplate": "com.gradle:develocity-maven-extension",
+      "datasourceTemplate": "maven",
+      "registryUrlTemplate": "https://repo1.maven.org/maven2"
+    }
+  ],
   "packageRules": [
     {
       "matchFileNames": ["src/it/quarkus-latest/**"],
