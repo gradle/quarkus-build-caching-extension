@@ -11,7 +11,7 @@
 # Custom Maven Extension to make Quarkus build goal cacheable
 This Maven extension allows to make the [Quarkus Maven plugin](https://quarkus.io/guides/quarkus-maven-plugin) `build` goal cacheable.
 
-This project performs programmatic configuration of the [Develocity Build Cache](https://docs.gradle.com/develocity/maven-extension/current/#using_the_build_cache) through a Maven extension. See [here](https://docs.gradle.com/develocity/maven-extension/current/#custom_extension) for more details.
+This project performs programmatic configuration of the [Develocity Build Cache](https://docs.develocity.ai/maven/current/maven-extension/#using_the_build_cache) through a Maven extension. See [here](https://docs.develocity.ai/maven/current/maven-extension/#custom_extension) for more details.
 
 *Note:*<br>
 A native executable can be a very large file. Copying it from/to the local cache, or transferring it from/to the remote cache can be an expensive operation that has to be balanced with the duration of the work being avoided.
@@ -246,7 +246,7 @@ The presence of the file is required to mark the Quarkus `build` goal as cacheab
 The `track-config-changes` goal creates a file `target/quarkus-prod-config-check` containing all the properties from the `.quarkus/quarkus-prod-config-dump` with their actual value.
 If property values are identical in the two files, it means that the Quarkus configuration was not changed since the last Quarkus `build`, therefore the Quarkus `build` goal can be marked cacheable.
 
-When the Quarkus `build` goal is marked cacheable, the regular caching process using [inputs](#goal-inputs) and [outputs](#goal-outputs) kicks in as described [here](https://docs.gradle.com/develocity/maven-extension/current/#using_the_build_cache).
+When the Quarkus `build` goal is marked cacheable, the regular caching process using [inputs](#goal-inputs) and [outputs](#goal-outputs) kicks in as described [here](https://docs.develocity.ai/maven/current/maven-extension/#using_the_build_cache).
 
 ### Illustrated sequence of operations 
 Let's illustrate the extension behavior with the following sequence of builds:
@@ -334,7 +334,7 @@ Here are the files added as output:
 ## Quarkus Test goals
 
 When the test goals (`maven-surefire-plugin` and `maven-failsafe-plugin`) are running some `@QuarkusTest` or `@QuarkusIntegrationTest`, 
-it is important for consistency to add [implicit dependencies](#quarkus-extra-dependencies) as goal [additional input](https://docs.gradle.com/develocity/maven-extension/current/#declaring_additional_inputs).
+it is important for consistency to add [implicit dependencies](#quarkus-extra-dependencies) as goal [additional input](https://docs.develocity.ai/maven/current/maven-extension/#declaring_additional_inputs).
 
 Specifically for `maven-failsafe-plugin`, the Quarkus artifact descriptor `quarkus-artifact.properties` also needs to be added. 
 
@@ -391,5 +391,5 @@ Prior to Quarkus 3.9.0:
 [develocity-build-validation-scripts]: https://github.com/gradle/develocity-build-validation-scripts
 [develocity-oss-projects]: https://github.com/gradle/develocity-oss-projects
 [quarkus-build-caching-extension]: https://github.com/gradle/quarkus-build-caching-extension
-[develocity]: https://gradle.com/develocity
+[develocity]: https://develocity.ai/
 [apache-license]: https://www.apache.org/licenses/LICENSE-2.0.html
