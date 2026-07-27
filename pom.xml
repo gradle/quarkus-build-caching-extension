@@ -102,6 +102,15 @@
                     <cloneProjectsTo>${project.build.directory}/it</cloneProjectsTo>
                     <invokerPropertiesFile>invoker.properties</invokerPropertiesFile>
                     <streamLogs>true</streamLogs>
+                    <!--
+                        The quarkus-latest integration test is temporarily disabled: Quarkus
+                        999-SNAPSHOT artifacts are no longer published to the Maven snapshots
+                        repository, so the test project's POM cannot be resolved and the build fails.
+                        Re-enable as part of https://github.com/gradle/dv/issues/69380.
+                    -->
+                    <pomExcludes>
+                        <pomExclude>quarkus-latest/pom.xml</pomExclude>
+                    </pomExcludes>
                     <filterProperties>
                         <develocity-options>-Dmaven.ext.class.path=../../quarkus-build-caching-extension-${project.version}.jar -Ddevelocity.cache.local.directory=${project.build.directory}/build-cache -Ddevelocity.cache.remote.enabled=false</develocity-options>
                     </filterProperties>

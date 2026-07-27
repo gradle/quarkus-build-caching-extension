@@ -5,6 +5,8 @@ permissions:
 on:
   schedule:
     # Every Sunday at 9.00am - scheduled to test against latest Quarkus version
+    # NOTE: the quarkus-latest integration test is currently excluded in pom.xml,
+    # so this run only covers quarkus-3.8 until https://github.com/gradle/dv/issues/69380 is fixed
     - cron: "0 9 * * 0"
   push:
     branches: [ main ]
