@@ -24,9 +24,11 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
+      - name: Install Quarkus snapshots
+        uses: quarkusio/install-quarkus-snapshots-action@main
       - name: Build with Maven
         run: |
-          ./mvnw --batch-mode clean package integration-test
+          ./mvnw --batch-mode clean package integration-test -Drun-latest-it=true
         env:
           DEVELOCITY_ACCESS_KEY: ${{ secrets.DV_SOLUTIONS_ACCESS_KEY }}
       - name: Upload integration tests reports (on failure only)
