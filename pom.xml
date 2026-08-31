@@ -12,7 +12,6 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <run-latest-it>false</run-latest-it>
     </properties>
 
     <scm>
@@ -103,9 +102,14 @@
                     <cloneProjectsTo>${project.build.directory}/it</cloneProjectsTo>
                     <invokerPropertiesFile>invoker.properties</invokerPropertiesFile>
                     <streamLogs>true</streamLogs>
+                    <!-- quarkus-latest builds against io.quarkus:*:999-SNAPSHOT, which is only
+                         available once the Quarkus snapshots have been installed. It is run by
+                         the nightly workflow via -Dinvoker.test=quarkus-latest. -->
+                    <pomExcludes>
+                        <pomExclude>quarkus-latest/pom.xml</pomExclude>
+                    </pomExcludes>
                     <filterProperties>
                         <develocity-options>-Dmaven.ext.class.path=../../quarkus-build-caching-extension-${project.version}.jar -Ddevelocity.cache.local.directory=${project.build.directory}/build-cache -Ddevelocity.cache.remote.enabled=false</develocity-options>
-                        <run-latest-it>${run-latest-it}</run-latest-it>
                     </filterProperties>
                 </configuration>
                 <executions>
