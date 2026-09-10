@@ -202,6 +202,8 @@ What changes is *which* dump is used. A single execution has to compare the dump
 
 The extension verifies that: the dump has to record `quarkus.native.sources-only=true`, which only an augmentation-only execution writes. A dump left over from an earlier build, or checked in from a single-execution setup, is rejected and the native image generation is not cached.
 
+Recording only the augmentation loses nothing. Config tracking resolves the whole Quarkus configuration rather than only the properties the executed build steps happen to read, so an augmentation-only build records the same 167 properties as a full native build of the same project, with `quarkus.native.sources-only` as the single differing value. Native-specific properties are all there, output type included: `quarkus.package.jar.type`, `quarkus.native.debug.enabled` and `quarkus.native.compression.level` are recorded with the value they were given, whether or not the build step reading them runs. The config half of the second execution's key is therefore exactly as strong as a single execution's config tracking.
+
 Two details of how the dump is keyed on:
 - properties are added as individual goal inputs rather than as a file, so a cache miss names the property responsible
 - `quarkus.native.graalvm-home`, `quarkus.native.java-home` and `quarkus.native.sources-only` are [ignored](#ignore-properties-in-quarkus-configuration-dump). The first two hold absolute paths, and the third differs by design between the two executions
