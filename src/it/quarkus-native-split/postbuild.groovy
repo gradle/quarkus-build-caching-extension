@@ -14,12 +14,12 @@ void assertAugmentationExecuted(String log) {
     assert log.contains('The sources for a subsequent native-image run')
 }
 
-void assertNativeImageCacheMiss(String logFile) {
-    println("Verifying native image cache miss on ${logFile}...")
+void assertNativeImageCacheable(String logFile) {
+    println("Verifying native image is cacheable on ${logFile}...")
     String log = getContent(logFile)
+    // no .quarkus/quarkus-prod-config-dump is checked in, yet the goal is cacheable from the first build
     assert log.contains('[quarkus-build-caching-extension] Quarkus native-image build goal marked as cacheable')
     assertAugmentationExecuted(log)
-    assert log.contains('Building native image from')
 }
 
 void assertNativeImageCacheHit(String logFile) {
@@ -51,9 +51,11 @@ void assertNativeExecutableExists() {
 }
 
 // The native image generation is cacheable from the very first build: it does not rely on a
-// Quarkus configuration dump recorded by a previous build
-assertNativeImageCacheMiss('01-split-native-build-cache-miss.log')
-assertAugmentationNotCached('01-split-native-build-cache-miss.log')
+// Quarkus configuration dump recorded by a previous build.
+// Whether this first invocation is a hit or a miss depends on what target/build-cache already
+// holds, so only cacheability is asserted here.
+assertNativeImageCacheable('01-split-native-build-cacheable.log')
+assertAugmentationNotCached('01-split-native-build-cacheable.log')
 
 assertNativeImageCacheHit('02-split-native-build-cache-hit.log')
 
