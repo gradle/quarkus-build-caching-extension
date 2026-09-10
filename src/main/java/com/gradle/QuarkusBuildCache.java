@@ -55,6 +55,9 @@ final class QuarkusBuildCache {
     // Quarkus artifact descriptor
     private static final String QUARKUS_ARTIFACT_PROPERTIES_FILE_NAME = "quarkus-artifact.properties";
 
+    // Prefix of the goal inputs carrying the Quarkus configuration recorded by the augmentation
+    private static final String QUARKUS_RECORDED_CONFIG_INPUT_PREFIX = "quarkusRecordedConfig.";
+
     void configureBuildCache(BuildCacheApi buildCache) {
         buildCache.registerNormalizationProvider(context -> {
             QuarkusExtensionConfiguration extensionConfiguration = new QuarkusExtensionConfiguration(context.getProject());
@@ -179,9 +182,10 @@ final class QuarkusBuildCache {
      * Second execution of a split native build: the expensive one. The native executable is fully determined by the
      * {@code native-image} arguments, the runner jar and its dependencies, all of which the first execution has just
      * written to {@code target/native-sources}. Keying on those instead of on the whole compile classpath makes the
-     * cache key both narrower and stable across environments, and removes the need for a Quarkus configuration dump:
-     * the arguments reflect the configuration actually used, so there is nothing left to compare against a previous
-     * build.
+     * cache key both narrower and stable across environments. The configuration the augmentation recorded is keyed on
+     * as well, since the build steps running after {@code native-image} read properties that reach neither the jar nor
+     * the arguments. Unlike a single execution, nothing has to be compared against a previous build: the augmentation
+     * has already run, so its dump describes the configuration of this build.
      */
     private void configureNativeImageExecution(MojoMetadataProvider.Context context, QuarkusExtensionConfiguration extensionConfiguration) {
         // The key of this execution is the jar the native-sources execution produces. Without it there is nothing to
@@ -190,6 +194,14 @@ final class QuarkusBuildCache {
             LOGGER.info(QuarkusExtensionUtil.getLogMessage(QuarkusBuildGoalMode.NATIVE_SOURCES_DIR + "/" + QuarkusBuildGoalMode.NATIVE_IMAGE_ARGS_FILE_NAME + " not found, is the native build enabled?"));
             LOGGER.info(QuarkusExtensionUtil.getLogMessage("Quarkus native-image build goal marked as not cacheable"));
             context.outputs(outputs -> outputs.notCacheableBecause("the native-sources execution did not produce the jar this execution is keyed on"));
+            return;
+        }
+
+        // Load the Quarkus configuration recorded by the augmentation of this very build
+        Properties quarkusRecordedProperties = QuarkusExtensionUtil.loadProperties(context.getProject().getBasedir().getAbsolutePath(), extensionConfiguration.getDumpConfigFileName());
+        if (!isConfigDumpRecordedByNativeSourcesBuild(quarkusRecordedProperties)) {
+            LOGGER.info(QuarkusExtensionUtil.getLogMessage("Quarkus native-image build goal marked as not cacheable"));
+            context.outputs(outputs -> outputs.notCacheableBecause("the Quarkus configuration recorded by the native-sources execution is unavailable"));
             return;
         }
 
@@ -210,8 +222,46 @@ final class QuarkusBuildCache {
             }
             addMojoInputs(inputs);
             addNativeSourcesInputs(inputs);
+            addQuarkusRecordedConfigInputs(inputs, quarkusRecordedProperties);
+            addQuarkusConfigurationFilesInputs(inputs, quarkusRecordedProperties);
         });
         configureNativeImageOutputs(context);
+    }
+
+    /**
+     * The configuration dump is only a trustworthy record of the configuration this build used if the augmentation
+     * wrote it, which it does on every build since it is never cached. A dump recorded by anything else is either
+     * checked in or left over from an earlier build, and says nothing about the current configuration.
+     */
+    private boolean isConfigDumpRecordedByNativeSourcesBuild(Properties quarkusRecordedProperties) {
+        if (quarkusRecordedProperties.isEmpty()) {
+            LOGGER.info(QuarkusExtensionUtil.getLogMessage("Quarkus configuration dump not found, is quarkus.config-tracking.enabled set to true?"));
+            return false;
+        }
+
+        if (!Boolean.parseBoolean(quarkusRecordedProperties.getProperty(QUARKUS_CONFIG_KEY_NATIVE_SOURCES_ONLY))
+                && !PACKAGE_NATIVE_SOURCES.equals(quarkusRecordedProperties.getProperty(QUARKUS_CONFIG_KEY_DEPRECATED_PACKAGE_TYPE))) {
+            LOGGER.info(QuarkusExtensionUtil.getLogMessage("Quarkus configuration dump was not recorded by the native-sources build goal"));
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Not every Quarkus property reaches {@code native-image.args}. The build steps running after
+     * {@code native-image}, the UPX compression in particular, are driven by properties which appear neither in the
+     * arguments nor in the jar, so the configuration the augmentation recorded has to be part of the key as well.
+     *
+     * <p>The properties are added one by one rather than as a file so that the ignored ones, which hold absolute paths,
+     * are left out, and so that a cache miss names the property responsible.
+     */
+    private void addQuarkusRecordedConfigInputs(MojoMetadataProvider.Context.Inputs inputs, Properties quarkusRecordedProperties) {
+        quarkusRecordedProperties.stringPropertyNames()
+                .stream()
+                .filter(key -> !QUARKUS_IGNORED_PROPERTIES.contains(key))
+                .sorted()
+                .forEach(key -> inputs.property(QUARKUS_RECORDED_CONFIG_INPUT_PREFIX + key, quarkusRecordedProperties.getProperty(key)));
     }
 
     /**

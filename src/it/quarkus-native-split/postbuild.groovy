@@ -31,6 +31,22 @@ void assertNativeImageCacheHit(String logFile) {
     assert !log.contains('Building native image from')
 }
 
+void assertNativeImageCacheMiss(String logFile) {
+    println("Verifying native image cache miss on ${logFile}...")
+    String log = getContent(logFile)
+    assert log.contains('[quarkus-build-caching-extension] Quarkus native-image build goal marked as cacheable')
+    assertAugmentationExecuted(log)
+    assert log.contains('Building native image from')
+}
+
+void assertNativeImageNotCacheable(String logFile, String reason) {
+    println("Verifying native image is not cacheable on ${logFile}...")
+    String log = getContent(logFile)
+    assert log.contains('[quarkus-build-caching-extension] Quarkus native-image build goal marked as not cacheable')
+    assert log.contains(reason)
+    assert log.contains('Building native image from')
+}
+
 void assertNativeImageCacheDisabled(String logFile) {
     println("Verifying caching disabled on ${logFile}...")
     String log = getContent(logFile)
@@ -65,6 +81,15 @@ assertNativeImageCacheHit('02-split-native-build-cache-hit.log')
 assertNativeImageCacheHit('03-split-native-build-changed-classpath-cache-hit.log')
 
 assertNativeImageCacheDisabled('04-split-native-build-cache-disabled.log')
+
+// A Quarkus property the augmentation records but that reaches neither the jar nor
+// native-image.args still has to invalidate the native image generation
+assertNativeImageCacheMiss('05-split-native-build-changed-config-cache-miss.log')
+
+// Without config tracking the dump is not rewritten, so the one left on disk is whatever an
+// earlier build wrote. It is rejected rather than trusted as a record of this build's configuration
+assertNativeImageNotCacheable('06-split-native-build-no-config-tracking.log',
+        'Quarkus configuration dump was not recorded by the native-sources build goal')
 
 // The executable is restored by the cache, not only produced by a real native-image run
 assertNativeExecutableExists()
