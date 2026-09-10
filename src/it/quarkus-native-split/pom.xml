@@ -1,0 +1,118 @@
+<?xml version="1.0"?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd"
+         xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.gradle</groupId>
+    <artifactId>quarkus-test-native-split</artifactId>
+    <version>0.1-SNAPSHOT</version>
+
+    <properties>
+        <!-- quarkus.native.sources-only requires Quarkus 3.9.0 or above -->
+        <quarkus.version>3.39.3</quarkus.version>
+        <quarkus.config-tracking.enabled>true</quarkus.config-tracking.enabled>
+        <maven.compiler.release>17</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <!-- The native image generation is cacheable on its own, the augmentation is cheap enough to always run -->
+        <quarkus.native.enabled>true</quarkus.native.enabled>
+        <quarkus.native.container-build>true</quarkus.native.container-build>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>io.quarkus</groupId>
+                <artifactId>quarkus-bom</artifactId>
+                <version>${quarkus.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-rest</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>io.quarkus</groupId>
+                <artifactId>quarkus-maven-plugin</artifactId>
+                <version>${quarkus.version}</version>
+                <extensions>true</extensions>
+                <executions>
+                    <execution>
+                        <id>track-prod-config-changes</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>track-config-changes</goal>
+                        </goals>
+                        <configuration>
+                            <dumpCurrentWhenRecordedUnavailable>true</dumpCurrentWhenRecordedUnavailable>
+                        </configuration>
+                    </execution>
+                    <!-- Step 1: stop after the augmentation, leaving the runner jar and the
+                         native-image arguments in target/native-sources -->
+                    <execution>
+                        <id>quarkus-jar</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>build</goal>
+                        </goals>
+                        <configuration>
+                            <systemProperties>
+                                <quarkus.native.sources-only>true</quarkus.native.sources-only>
+                            </systemProperties>
+                        </configuration>
+                    </execution>
+                    <!-- Step 2: turn that jar into the native executable, keyed on it -->
+                    <execution>
+                        <id>quarkus-native-image</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>build</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <!-- Adds a provided dependency: it changes the compile classpath without changing the
+             runtime closure the native image is built from -->
+        <profile>
+            <id>extra-compile-dependency</id>
+            <activation>
+                <property>
+                    <name>extra-compile-dependency</name>
+                </property>
+            </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>org.apache.commons</groupId>
+                    <artifactId>commons-lang3</artifactId>
+                    <version>3.19.0</version>
+                    <scope>provided</scope>
+                </dependency>
+            </dependencies>
+        </profile>
+
+        <profile>
+            <id>cache-disabled</id>
+            <activation>
+                <property>
+                    <name>cache-disabled</name>
+                </property>
+            </activation>
+            <properties>
+                <develocity.quarkus.cache.enabled>false</develocity.quarkus.cache.enabled>
+            </properties>
+        </profile>
+    </profiles>
+
+</project>

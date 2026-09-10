@@ -1,3 +1,6 @@
+### 1.13
+- Add support for split native builds: cache the native image generation on its own, keyed on the jar produced by a `quarkus.native.sources-only` execution rather than on the compile classpath
+
 ### 1.12
 - Add support for fast-jar package type
 

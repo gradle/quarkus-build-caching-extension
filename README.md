@@ -37,6 +37,11 @@ The in-container build strategy means the build is as reproducible as possible. 
 
 If the build environments are strictly identical, this restriction can be removed by setting `DEVELOCITY_QUARKUS_NATIVE_BUILD_IN_CONTAINER_REQUIRED=false`. See [configuration section](#build-strategy-1) for more details.
 
+### Cache key width for native builds
+With a single `build` execution, the native executable is keyed on everything feeding the Quarkus augmentation, the compile classpath in particular. Any classpath change therefore triggers a full native image generation, even when it does not change the jar the native image is built from.
+
+A [split native build](#split-native-build) narrows that key down to the jar itself.
+
 > [!NOTE]
 > When the in-container build strategy is used as a fallback the caching feature will be disabled. The fallback may happen due to GraalVM requirements not met. The recommendation is to explicitly set the in-container strategy (`quarkus.native.container-build=true`) to benefit from caching
 
@@ -121,6 +126,93 @@ If the file has some system dependent properties, it is possible to have [differ
 It is also possible to [ignore properties](#ignore-properties-in-quarkus-configuration-dump) not impacting the produced artifacts. 
 The `quarkus.native.graalvm-home` and `quarkus.native.java-home` are some classic examples, the JDK version is already captured as a goal input and the path to the JDK does not impact the produced artifact.
 
+## Split native build
+
+A native build does two very different things in one `build` execution: it augments the application into a jar, then hands that jar to `native-image`. The first part takes seconds, the second one minutes. Because both happen in the same goal execution, the expensive part is keyed on the inputs of the cheap one, the compile classpath in particular.
+
+Quarkus can stop right after the augmentation with [`quarkus.native.sources-only`](https://quarkus.io/guides/native-reference#build-native-image-separately), leaving in `target/native-sources` the runner jar, its dependencies, the `native-image` arguments and, for an in-container build, the builder image to use. Declaring the `build` goal twice therefore splits a native build in two:
+
+```xml
+<plugin>
+    <groupId>${quarkus.platform.group-id}</groupId>
+    <artifactId>quarkus-maven-plugin</artifactId>
+    <version>${quarkus.platform.version}</version>
+    <extensions>true</extensions>
+    <executions>
+        <execution>
+            <id>track-prod-config-changes</id>
+            <phase>process-resources</phase>
+            <goals>
+                <goal>track-config-changes</goal>
+            </goals>
+            <configuration>
+                <dumpCurrentWhenRecordedUnavailable>true</dumpCurrentWhenRecordedUnavailable>
+            </configuration>
+        </execution>
+        <!-- Step 1: augmentation only, produces target/native-sources -->
+        <execution>
+            <id>quarkus-jar</id>
+            <phase>package</phase>
+            <goals>
+                <goal>build</goal>
+            </goals>
+            <configuration>
+                <systemProperties>
+                    <quarkus.native.sources-only>true</quarkus.native.sources-only>
+                </systemProperties>
+            </configuration>
+        </execution>
+        <!-- Step 2: native image generation, cached -->
+        <execution>
+            <id>quarkus-native-image</id>
+            <phase>package</phase>
+            <goals>
+                <goal>build</goal>
+            </goals>
+        </execution>
+    </executions>
+</plugin>
+```
+
+The extension recognizes this layout on its own: no configuration flag turns it on. It applies as soon as a project declares several `build` executions of which exactly one requests `native-sources` through the mojo's `systemProperties`. Any other layout keeps the single-execution behavior described above.
+
+The execution ids are free, the extension does not match on them.
+
+### What this buys
+
+The second execution does not consume the first one's jar, it re-runs the augmentation itself. What it inherits is a *cache key*: the jar and the `native-image` arguments the first execution just produced. Since the [Quarkus reproducibility work](https://github.com/quarkusio/quarkus/pull/54895) makes the augmentation output stable, two builds whose classpath differs but whose augmentation output does not now share the native image.
+
+Measured on a `quarkus-rest` application, in-container build, adding a `provided` dependency (on the compile classpath, absent from the runtime closure the native image is built from):
+
+| | single `build` execution | split native build |
+|---|---|---|
+| First build | 59s | 51s |
+| Nothing changed | 4s | 6s |
+| Compile classpath changed | 56s (`native-image` re-runs) | 6s (`native-image` reused) |
+
+Splitting costs nothing measurable: the duplicated augmentation is ~1.3s of a ~50s build, and `native-image` runs as a subprocess either way.
+
+### No configuration dump needed
+
+The second execution needs no `.quarkus/quarkus-prod-config-dump`, so the [dump initialization step](#quarkus-configuration-dump-initialization) becomes unnecessary for the native image generation. The reason the single-execution setup needs a dump is that Quarkus properties are only discovered during the augmentation, so the extension has to compare against what the previous build recorded. In a split build the augmentation has already run when the second execution's key is computed, and `native-sources/native-image.args` reflects the configuration actually used. There is nothing left to compare.
+
+`quarkus.native.sources-only` is [ignored](#ignore-properties-in-quarkus-configuration-dump) by the extension when comparing configuration dumps. It differs by design between the two executions, so tracking it would make the dump alternate between both values and invalidate the cache every other build.
+
+### Caching the augmentation
+
+The augmentation is not cached by default. It is cheap, while `target/native-sources` holds every runtime dependency and is therefore a much larger cache entry than the native executable itself. If your measurements say otherwise, cache it with:
+
+```properties
+DEVELOCITY_QUARKUS_CACHE_NATIVE_SOURCES_ENABLED=true
+```
+
+### Limitations
+
+- **`target/quarkus-artifact.properties` is not restored by the native image generation.** Quarkus writes this descriptor at the end of every augmentation, so both executions produce it. Declaring a file that an earlier goal execution also writes is an [overlapping output](https://docs.develocity.ai/maven/current/maven-extension/), which Develocity resolves by refusing to store the later execution, defeating the split. The descriptor is consequently left describing the native-sources jar (`type=native-sources`) after a cache hit, so `@QuarkusIntegrationTest` against the native executable is not supported with a split build. Projects running native integration tests should keep a single `build` execution. Lifting this needs Quarkus to skip writing the descriptor in `sources-only` mode.
+- **`quarkus.package.output-directory` cannot be used to work around it.** Relocating the augmentation output fails in `sources-only` mode (`NoSuchFileException` on the `lib` directory), reported against Quarkus 3.39.3.
+- **The local GraalVM version is not part of the key** for a non in-container build. `native-sources/graalvm.version` holds the version Quarkus *supports*, a hardcoded constant, not the installed one. The in-container build strategy, required by default, pins the whole toolchain through `native-sources/native-builder.image`.
+- Absolute paths appearing in `native-image.args`, which `quarkus.native.agent-configuration-directory` and PGO profiles introduce, make the key machine-specific.
+
 ## Configuration
 
 Configuration can be set with (listed in order of precedence ):
@@ -135,6 +227,13 @@ Configuration can be set with (listed in order of precedence ):
 The caching can be disabled by setting:
 ```properties
 DEVELOCITY_QUARKUS_CACHE_ENABLED=false
+```
+
+#### Native sources caching
+
+The augmentation of a [split native build](#split-native-build) is not cached by default. It can be cached with:
+```properties
+DEVELOCITY_QUARKUS_CACHE_NATIVE_SOURCES_ENABLED=true
 ```
 
 #### Quarkus configuration dump
@@ -200,6 +299,7 @@ The same configuration can be achieved with Maven properties:
     <develocity.quarkus.extra.output.dirs>helm</develocity.quarkus.extra.output.dirs>
     <develocity.quarkus.extra.output.files>helm/kubernetes/${project.artifactId}/Chart.yaml,helm/kubernetes/${project.artifactId}/values.yaml</develocity.quarkus.extra.output.files>
     <develocity.quarkus.native.build.in.container.required>false</develocity.quarkus.native.build.in.container.required>
+    <develocity.quarkus.cache.native.sources.enabled>false</develocity.quarkus.cache.native.sources.enabled>
 </properties>
 ```
 
@@ -320,6 +420,25 @@ This fileset is added as goal input with a `RUNTIME_CLASSPATH` normalization str
 Quarkus dynamically adds some dependencies to the build which will be listed in the `target/quarkus-prod-dependency-checksums.txt` file.
 This file is created by the Quarkus `track-config-changes` goal and contains the list of dependencies along with their checksum for snapshot versions (one dependency per line).
 This file is added as goal input with a `RELATIVE_PATH` normalization strategy.
+
+### Split native build goal inputs and outputs
+
+In a [split native build](#split-native-build) the two `build` executions get different instructions.
+
+#### The augmentation (`native-sources`) execution
+Same inputs as a single execution, and a single output: the `target/native-sources` directory. Not cacheable unless `DEVELOCITY_QUARKUS_CACHE_NATIVE_SOURCES_ENABLED=true`.
+
+#### The native image generation execution
+Inputs:
+- `target/native-sources/*.jar` and `target/native-sources/lib/**`, with a `CLASSPATH` normalization strategy: the jar the native image is built from
+- `target/native-sources/native-image.args`, with a `RELATIVE_PATH` strategy: every argument passed to `native-image`, which is where the effective Quarkus configuration ends up
+- `target/native-sources/native-builder.image`, with a `RELATIVE_PATH` strategy: the builder image, hence the whole toolchain, for an in-container build
+- the mojo parameters
+- OS details and the JDK version, only for a non in-container build
+
+Notably absent: the compile classpath, the config-check file and the Quarkus dependency files. All of them only matter through their effect on the jar and on the arguments, both of which are already inputs. Keeping them would widen the key back and defeat the split.
+
+Output: `target/<project.build.finalName>-runner`.
 
 ### Goal Outputs
 Here are the files added as output:
