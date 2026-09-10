@@ -200,10 +200,20 @@ final class QuarkusBuildCache {
      * build.
      */
     private void configureNativeImageExecution(MojoMetadataProvider.Context context, QuarkusExtensionConfiguration extensionConfiguration) {
+        // The key of this execution is the jar the native-sources execution produces. Without it there is nothing to
+        // key on, which happens when the build is not native or when this execution is run on its own
+        if (!QuarkusBuildGoalMode.nativeImageArgsFile(context.getProject()).exists()) {
+            LOGGER.info(QuarkusExtensionUtil.getLogMessage(QuarkusBuildGoalMode.NATIVE_SOURCES_DIR + "/" + QuarkusBuildGoalMode.NATIVE_IMAGE_ARGS_FILE_NAME + " not found, is the native build enabled?"));
+            LOGGER.info(QuarkusExtensionUtil.getLogMessage("Quarkus native-image build goal marked as not cacheable"));
+            context.outputs(outputs -> outputs.notCacheableBecause("the native-sources execution did not produce the jar this execution is keyed on"));
+            return;
+        }
+
         boolean isInContainerBuild = QuarkusBuildGoalMode.nativeBuilderImageFile(context.getProject()).exists();
         if (extensionConfiguration.isNativeBuildInContainerRequired() && !isInContainerBuild) {
             LOGGER.info(QuarkusExtensionUtil.getLogMessage("Quarkus build strategy is not in-container"));
             LOGGER.info(QuarkusExtensionUtil.getLogMessage("Quarkus native-image build goal marked as not cacheable"));
+            context.outputs(outputs -> outputs.notCacheableBecause("the in-container build strategy is required"));
             return;
         }
 

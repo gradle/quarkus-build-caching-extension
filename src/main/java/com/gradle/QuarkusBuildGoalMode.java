@@ -5,8 +5,6 @@ import org.apache.maven.model.PluginExecution;
 import org.apache.maven.plugin.MojoExecution;
 import org.apache.maven.project.MavenProject;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -39,8 +37,6 @@ enum QuarkusBuildGoalMode {
      */
     NATIVE_IMAGE;
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(QuarkusBuildGoalMode.class);
-
     static final String NATIVE_SOURCES_DIR = "target/native-sources";
     static final String NATIVE_IMAGE_ARGS_FILE_NAME = "native-image.args";
     static final String NATIVE_BUILDER_IMAGE_FILE_NAME = "native-builder.image";
@@ -60,6 +56,9 @@ enum QuarkusBuildGoalMode {
      * <p>A split native build is recognized when the project declares several {@code build} executions and exactly one
      * of them requests {@code native-sources} through the mojo's {@code systemProperties}. Anything else keeps the
      * historical single-execution behavior, so existing projects are unaffected.
+     *
+     * <p>Only the project model is looked at, never the filesystem: an execution has to be given the same caching
+     * instructions on every build, whatever {@code target} happens to contain.
      *
      * @param mojoExecution the {@code build} goal execution being configured
      * @param project the project owning the execution
@@ -83,22 +82,7 @@ enum QuarkusBuildGoalMode {
             return SINGLE;
         }
 
-        if (nativeSourcesExecutionIds.contains(mojoExecution.getExecutionId())) {
-            return NATIVE_SOURCES;
-        }
-
-        // The narrow cache key of the second execution is only valid once the first one has produced the jar and the
-        // native-image arguments. When they are missing the build is not native after all, and the single-execution
-        // instructions remain the safe choice.
-        if (nativeImageArgsFile(project).exists()) {
-            return NATIVE_IMAGE;
-        }
-
-        LOGGER.info(QuarkusExtensionUtil.getLogMessage(
-                NATIVE_SOURCES_DIR + "/" + NATIVE_IMAGE_ARGS_FILE_NAME + " not found,"
-                        + " falling back to the single execution caching instructions."
-                        + " Is the native build enabled?"));
-        return SINGLE;
+        return nativeSourcesExecutionIds.contains(mojoExecution.getExecutionId()) ? NATIVE_SOURCES : NATIVE_IMAGE;
     }
 
     /**
