@@ -41,6 +41,7 @@ void assertNativeImageCacheDisabled(String logFile) {
 
 void assertAugmentationNotCached(String logFile) {
     String log = getContent(logFile)
+    // the augmentation is never cached, only the native image generation is
     assert log.contains('[quarkus-build-caching-extension] Quarkus native-sources build goal marked as not cacheable')
 }
 

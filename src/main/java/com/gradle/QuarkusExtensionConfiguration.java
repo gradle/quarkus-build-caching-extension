@@ -43,9 +43,6 @@ final class QuarkusExtensionConfiguration {
     // Native build in container required key
     private static final String DEVELOCITY_QUARKUS_KEY_NATIVE_BUILD_IN_CONTAINER_REQUIRED = "DEVELOCITY_QUARKUS_NATIVE_BUILD_IN_CONTAINER_REQUIRED";
 
-    // Native sources caching flag key
-    private static final String DEVELOCITY_QUARKUS_KEY_CACHE_NATIVE_SOURCES_ENABLED = "DEVELOCITY_QUARKUS_CACHE_NATIVE_SOURCES_ENABLED";
-
     private final Properties configuration = new Properties();
 
     QuarkusExtensionConfiguration(MavenProject project) {
@@ -72,7 +69,6 @@ final class QuarkusExtensionConfiguration {
         configuration.setProperty(DEVELOCITY_QUARKUS_KEY_EXTRA_OUTPUT_DIRS, "");
         configuration.setProperty(DEVELOCITY_QUARKUS_KEY_EXTRA_OUTPUT_FILES, "");
         configuration.setProperty(DEVELOCITY_QUARKUS_KEY_NATIVE_BUILD_IN_CONTAINER_REQUIRED, Boolean.TRUE.toString());
-        configuration.setProperty(DEVELOCITY_QUARKUS_KEY_CACHE_NATIVE_SOURCES_ENABLED, Boolean.FALSE.toString());
     }
 
     private void overrideFromEnvironment() {
@@ -108,23 +104,6 @@ final class QuarkusExtensionConfiguration {
     boolean isQuarkusCacheEnabled() {
         // Quarkus cache is enabled by default
         return !Boolean.FALSE.toString().equals(configuration.get(DEVELOCITY_QUARKUS_KEY_CACHE_ENABLED));
-    }
-
-    /**
-     * The first execution of a split native build only runs the augmentation, which is inexpensive, while its output
-     * directory holds every runtime dependency. Caching it is therefore opt-in.
-     *
-     * @return whether the native-sources build goal should be cached or not
-     */
-    boolean isNativeSourcesCacheEnabled() {
-        return Boolean.TRUE.toString().equals(configuration.get(DEVELOCITY_QUARKUS_KEY_CACHE_NATIVE_SOURCES_ENABLED));
-    }
-
-    /**
-     * @return the key enabling the caching of the native-sources build goal
-     */
-    static String nativeSourcesCacheEnabledKey() {
-        return DEVELOCITY_QUARKUS_KEY_CACHE_NATIVE_SOURCES_ENABLED;
     }
 
     /**

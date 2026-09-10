@@ -194,17 +194,15 @@ Splitting costs nothing measurable: the duplicated augmentation is ~1.3s of a ~5
 
 ### No configuration dump needed
 
-The second execution needs no `.quarkus/quarkus-prod-config-dump`, so the [dump initialization step](#quarkus-configuration-dump-initialization) becomes unnecessary for the native image generation. The reason the single-execution setup needs a dump is that Quarkus properties are only discovered during the augmentation, so the extension has to compare against what the previous build recorded. In a split build the augmentation has already run when the second execution's key is computed, and `native-sources/native-image.args` reflects the configuration actually used. There is nothing left to compare.
+A split native build needs no `.quarkus/quarkus-prod-config-dump` at all, so the [dump initialization step](#quarkus-configuration-dump-initialization) does not apply to it: the augmentation is never cached, and the native image generation does not rely on the dump. The reason the single-execution setup needs a dump is that Quarkus properties are only discovered during the augmentation, so the extension has to compare against what the previous build recorded. In a split build the augmentation has already run when the second execution's key is computed, and `native-sources/native-image.args` reflects the configuration actually used. There is nothing left to compare.
 
 `quarkus.native.sources-only` is [ignored](#ignore-properties-in-quarkus-configuration-dump) by the extension when comparing configuration dumps. It differs by design between the two executions, so tracking it would make the dump alternate between both values and invalidate the cache every other build.
 
-### Caching the augmentation
+### The augmentation is never cached
 
-The augmentation is not cached by default. It is cheap, while `target/native-sources` holds every runtime dependency and is therefore a much larger cache entry than the native executable itself. If your measurements say otherwise, cache it with:
+Only the native image generation is cached. The augmentation is inexpensive, a couple of seconds against the minutes `native-image` takes, while `target/native-sources` holds every runtime dependency and would make a far larger cache entry than the native executable itself.
 
-```properties
-DEVELOCITY_QUARKUS_CACHE_NATIVE_SOURCES_ENABLED=true
-```
+Always executing it also keeps `target/quarkus-artifact.properties` present, which a cache hit on the augmentation would not, since the native image generation cannot declare that file as an output either (see [Limitations](#limitations-1)).
 
 ### Limitations
 
@@ -230,13 +228,6 @@ Configuration can be set with (listed in order of precedence ):
 The caching can be disabled by setting:
 ```properties
 DEVELOCITY_QUARKUS_CACHE_ENABLED=false
-```
-
-#### Native sources caching
-
-The augmentation of a [split native build](#split-native-build) is not cached by default. It can be cached with:
-```properties
-DEVELOCITY_QUARKUS_CACHE_NATIVE_SOURCES_ENABLED=true
 ```
 
 #### Quarkus configuration dump
@@ -302,7 +293,6 @@ The same configuration can be achieved with Maven properties:
     <develocity.quarkus.extra.output.dirs>helm</develocity.quarkus.extra.output.dirs>
     <develocity.quarkus.extra.output.files>helm/kubernetes/${project.artifactId}/Chart.yaml,helm/kubernetes/${project.artifactId}/values.yaml</develocity.quarkus.extra.output.files>
     <develocity.quarkus.native.build.in.container.required>false</develocity.quarkus.native.build.in.container.required>
-    <develocity.quarkus.cache.native.sources.enabled>false</develocity.quarkus.cache.native.sources.enabled>
 </properties>
 ```
 
@@ -429,7 +419,7 @@ This file is added as goal input with a `RELATIVE_PATH` normalization strategy.
 In a [split native build](#split-native-build) the two `build` executions get different instructions.
 
 #### The augmentation (`native-sources`) execution
-Same inputs as a single execution, and a single output: the `target/native-sources` directory. Not cacheable unless `DEVELOCITY_QUARKUS_CACHE_NATIVE_SOURCES_ENABLED=true`.
+Never cacheable, hence no declared inputs or outputs.
 
 #### The native image generation execution
 Inputs:

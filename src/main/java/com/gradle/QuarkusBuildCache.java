@@ -125,7 +125,7 @@ final class QuarkusBuildCache {
 
         switch (mode) {
             case NATIVE_SOURCES:
-                configureNativeSourcesExecution(context, extensionConfiguration);
+                configureNativeSourcesExecution(context);
                 break;
             case NATIVE_IMAGE:
                 configureNativeImageExecution(context, extensionConfiguration);
@@ -160,35 +160,19 @@ final class QuarkusBuildCache {
     }
 
     /**
-     * First execution of a split native build. It only runs the augmentation, which is cheap compared to the native
-     * image generation, so it is left out of the cache unless caching is explicitly requested: the
-     * {@code target/native-sources} directory holds the runner jar along with every runtime dependency, and is
-     * therefore a much larger cache entry than the native executable itself.
+     * First execution of a split native build: the augmentation, which is never cached.
+     *
+     * <p>It is inexpensive, a couple of seconds against the minutes the native image generation takes, while its
+     * {@code target/native-sources} directory holds the runner jar along with every runtime dependency and would make
+     * a far larger cache entry than the native executable itself. Storing it can only lose.
+     *
+     * <p>Always executing it also keeps {@code target/quarkus-artifact.properties} present: a cache hit here would
+     * skip the goal that writes it, and the native image generation cannot declare it as an output, see
+     * {@link #configureNativeImageOutputs}.
      */
-    private void configureNativeSourcesExecution(MojoMetadataProvider.Context context, QuarkusExtensionConfiguration extensionConfiguration) {
-        if (!extensionConfiguration.isNativeSourcesCacheEnabled()) {
-            LOGGER.info(QuarkusExtensionUtil.getLogMessage("Quarkus native-sources build goal marked as not cacheable, set " + QuarkusExtensionConfiguration.nativeSourcesCacheEnabledKey() + "=true to cache it"));
-            context.outputs(outputs -> outputs.notCacheableBecause("the augmentation is inexpensive compared to the size of the native-sources directory"));
-            return;
-        }
-
-        // Load Quarkus properties from previous build
-        String baseDir = context.getProject().getBasedir().getAbsolutePath();
-        Properties quarkusPreviousProperties = QuarkusExtensionUtil.loadProperties(baseDir, extensionConfiguration.getDumpConfigFileName());
-
-        // Load Quarkus properties from current build
-        Properties quarkusCurrentProperties = QuarkusExtensionUtil.loadProperties(baseDir, extensionConfiguration.getCurrentConfigFileName());
-
-        // The augmentation inputs are only trustworthy when the Quarkus configuration is unchanged since the last build
-        if (!isQuarkusDumpConfigFilePresent(quarkusPreviousProperties, quarkusCurrentProperties)
-                || !isQuarkusPropertiesUnchanged(quarkusPreviousProperties, quarkusCurrentProperties)) {
-            LOGGER.info(QuarkusExtensionUtil.getLogMessage("Quarkus native-sources build goal marked as not cacheable"));
-            return;
-        }
-
-        LOGGER.info(QuarkusExtensionUtil.getLogMessage("Quarkus native-sources build goal marked as cacheable"));
-        configureInputs(context, extensionConfiguration, quarkusCurrentProperties);
-        configureNativeSourcesOutputs(context, extensionConfiguration.getExtraOutputDirs(), extensionConfiguration.getExtraOutputFiles());
+    private void configureNativeSourcesExecution(MojoMetadataProvider.Context context) {
+        LOGGER.info(QuarkusExtensionUtil.getLogMessage("Quarkus native-sources build goal marked as not cacheable"));
+        context.outputs(outputs -> outputs.notCacheableBecause("the augmentation is inexpensive compared to the size of the native-sources directory"));
     }
 
     /**
@@ -469,18 +453,6 @@ final class QuarkusBuildCache {
         }
     }
 
-    /**
-     * The native-sources execution stops after the augmentation, so it produces the directory holding the runner jar,
-     * its dependencies and the {@code native-image} arguments, rather than a final artifact.
-     */
-    private void configureNativeSourcesOutputs(MojoMetadataProvider.Context context, List<String> extraOutputDirs, List<String> extraOutputFiles) {
-        context.outputs(outputs -> {
-            outputs.cacheable("the Quarkus augmentation has well-defined inputs and outputs");
-            outputs.directory("quarkusNativeSources", QuarkusBuildGoalMode.NATIVE_SOURCES_DIR);
-            addExtraOutputs(outputs, extraOutputDirs, extraOutputFiles);
-        });
-    }
-
     private void configureOutputs(MojoMetadataProvider.Context context, List<String> extraOutputDirs, List<String> extraOutputFiles) {
         context.outputs(outputs -> {
             String quarkusExeFileName = TARGET_DIR + context.getProject().getBuild().getFinalName() + "-runner";
@@ -496,23 +468,19 @@ final class QuarkusBuildCache {
             outputs.file("quarkusArtifactProperties", quarkusArtifactProperties);
             outputs.directory("quarkusFastJar", quarkusFastJarDirectoryName);
 
-            addExtraOutputs(outputs, extraOutputDirs, extraOutputFiles);
-        });
-    }
+            extraOutputDirs.forEach(extraOutput -> {
+                if(!extraOutput.isEmpty()) {
+                    LOGGER.debug(QuarkusExtensionUtil.getLogMessage("Adding extra output dir " + extraOutput));
+                    outputs.directory(extraOutput, TARGET_DIR + extraOutput);
+                }
+            });
 
-    private void addExtraOutputs(MojoMetadataProvider.Context.Outputs outputs, List<String> extraOutputDirs, List<String> extraOutputFiles) {
-        extraOutputDirs.forEach(extraOutput -> {
-            if(!extraOutput.isEmpty()) {
-                LOGGER.debug(QuarkusExtensionUtil.getLogMessage("Adding extra output dir " + extraOutput));
-                outputs.directory(extraOutput, TARGET_DIR + extraOutput);
-            }
-        });
-
-        extraOutputFiles.forEach(extraOutput -> {
-            if(!extraOutput.isEmpty()) {
-                LOGGER.debug(QuarkusExtensionUtil.getLogMessage("Adding extra output file " + extraOutput));
-                outputs.file(extraOutput, TARGET_DIR + extraOutput);
-            }
+            extraOutputFiles.forEach(extraOutput -> {
+                if(!extraOutput.isEmpty()) {
+                    LOGGER.debug(QuarkusExtensionUtil.getLogMessage("Adding extra output file " + extraOutput));
+                    outputs.file(extraOutput, TARGET_DIR + extraOutput);
+                }
+            });
         });
     }
 
