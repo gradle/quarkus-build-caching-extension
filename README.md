@@ -37,9 +37,11 @@ A `build` execution the extension does not recognize as part of a split native b
 
 ### Build strategy
 By default, the `native` packaging is cacheable only if the in-container build strategy (`quarkus.native.container-build=true`) is configured along with a fixed build image (`quarkus.native.builder-image`).
-The in-container build strategy means the build is as reproducible as possible. Even so, some timestamps and instruction ordering may be different even when built on the same system in the same environment.
+The builder image is what pins the whole toolchain, which is why the extension keys on it and leaves the OS and JDK out of the key — making the entries shareable between a developer machine and CI.
 
-If the build environments are strictly identical, this restriction can be removed by setting `DEVELOCITY_QUARKUS_NATIVE_BUILD_IN_CONTAINER_REQUIRED=false`. See [configuration section](#build-strategy-1) for more details.
+If the build environments are strictly identical, this restriction can be removed by setting `DEVELOCITY_QUARKUS_NATIVE_BUILD_IN_CONTAINER_REQUIRED=false`, at the cost of the toolchain no longer being part of the cache key. See [configuration section](#build-strategy-1) for the warning that comes with it.
+
+Pin `quarkus.native.builder-image` to explicit coordinates rather than an alias such as `mandrel`: an alias floats, and the recorded configuration would not change when it resolves elsewhere. Setting `quarkus.native.builder-image.pull=missing` also stops Quarkus re-pulling the image on every build.
 
 > [!NOTE]
 > When the in-container build strategy is used as a fallback the caching feature will be disabled. The fallback may happen due to GraalVM requirements not met. The recommendation is to explicitly set the in-container strategy (`quarkus.native.container-build=true`) to benefit from caching
@@ -277,11 +279,21 @@ Quarkus configuration has to be aligned in such case to store the dump-config in
 
 #### Build strategy
 
-The default is to enable caching only when the in-container build strategy is used. 
+The default is to enable caching only when the in-container build strategy is used.
 If the build environments are strictly identical build over build, the restriction can be removed by setting:
 ```properties
 DEVELOCITY_QUARKUS_NATIVE_BUILD_IN_CONTAINER_REQUIRED=false
 ```
+
+> [!WARNING]
+> With the restriction lifted, the native toolchain is not part of the cache key. The OS and the JDK version are added as goal inputs, but the GraalVM or Mandrel version cannot be: `target/native-sources/graalvm.version` holds the version Quarkus *supports*, a constant, not the one installed — it reads `25.0.0` on a machine whose toolchain is Mandrel `25.0.4.1`. Upgrading GraalVM therefore does not invalidate anything, and an executable built by a different toolchain will be restored.
+>
+> Only use this when every environment sharing the cache runs an identical native toolchain. The extension warns on each such build:
+>
+> ```
+> [WARNING] [quarkus-build-caching-extension] Quarkus native image is built with a local toolchain, as DEVELOCITY_QUARKUS_NATIVE_BUILD_IN_CONTAINER_REQUIRED is disabled
+> [WARNING] [quarkus-build-caching-extension] The GraalVM or Mandrel version is not part of the cache key: only share these entries between environments running an identical native toolchain, otherwise an executable built by another toolchain will be restored
+> ```
 
 ### Maven properties
 

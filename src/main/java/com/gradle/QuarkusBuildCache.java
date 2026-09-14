@@ -45,6 +45,9 @@ final class QuarkusBuildCache {
     // Prefix of the goal inputs carrying the Quarkus configuration recorded by the augmentation
     private static final String QUARKUS_RECORDED_CONFIG_INPUT_PREFIX = "quarkusRecordedConfig.";
 
+    // Named in the warning raised when a native image is cached without the in-container build strategy
+    private static final String DEVELOCITY_QUARKUS_NATIVE_BUILD_IN_CONTAINER_REQUIRED_KEY = "DEVELOCITY_QUARKUS_NATIVE_BUILD_IN_CONTAINER_REQUIRED";
+
     void configureBuildCache(BuildCacheApi buildCache) {
         buildCache.registerNormalizationProvider(context -> {
             QuarkusExtensionConfiguration extensionConfiguration = new QuarkusExtensionConfiguration(context.getProject());
@@ -190,6 +193,14 @@ final class QuarkusBuildCache {
             LOGGER.info(QuarkusExtensionUtil.getLogMessage("Quarkus native-image build goal marked as not cacheable"));
             context.outputs(outputs -> outputs.notCacheableBecause("the in-container build strategy is required"));
             return;
+        }
+
+        if (!isInContainerBuild) {
+            // Reaching here with a local toolchain means the in-container requirement was lifted. The OS and the JDK
+            // are added as inputs below, but the native toolchain itself cannot be: native-sources/graalvm.version
+            // holds the version Quarkus supports, a constant, not the one that will run.
+            LOGGER.warn(QuarkusExtensionUtil.getLogMessage("Quarkus native image is built with a local toolchain, as " + DEVELOCITY_QUARKUS_NATIVE_BUILD_IN_CONTAINER_REQUIRED_KEY + " is disabled"));
+            LOGGER.warn(QuarkusExtensionUtil.getLogMessage("The GraalVM or Mandrel version is not part of the cache key: only share these entries between environments running an identical native toolchain, otherwise an executable built by another toolchain will be restored"));
         }
 
         LOGGER.info(QuarkusExtensionUtil.getLogMessage("Quarkus native-image build goal marked as cacheable"));
