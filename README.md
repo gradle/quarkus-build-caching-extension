@@ -164,7 +164,18 @@ The dump does not have to be checked in or restored. The augmentation runs first
 
 The extension verifies that: the dump has to record `quarkus.native.sources-only=true`, which only an augmentation-only execution writes. A dump left over from an earlier build, or checked in from a single-execution setup, is rejected and the native image generation is not cached.
 
-Recording only the augmentation loses nothing. Config tracking resolves the whole Quarkus configuration rather than only the properties the executed build steps happen to read, so an augmentation-only build records the same properties as a full native build of the same project, with `quarkus.native.sources-only` as the single differing value. Native-specific properties are all there, output type included: `quarkus.package.jar.type`, `quarkus.native.debug.enabled` and `quarkus.native.compression.level` are recorded with the value they were given, whether or not the build step reading them runs.
+Recording only the augmentation loses nothing, which is worth spelling out since the dump is not a snapshot of the whole configuration. `ConfigTrackingInterceptor` collects each option *as it is read*, and `ConfigTrackingWriter` keeps those that are build-time or build-time-fixed and not excluded. What makes the two modes agree is that the build-time config roots are all mapped when the augmentation starts, not lazily by the build step that needs them, so the set of options read does not depend on which build steps run.
+
+Measured on the `rest-villains` service of the Quarkus super-heroes workshop, comparing a single `build` execution run with and without `quarkus.native.sources-only`:
+
+| | sources-only | native |
+|---|---|---|
+| `native-image` ran | no | yes |
+| properties recorded | 249 | 249 |
+| keys present in one dump only | none | none |
+| values differing | `quarkus.native.sources-only` only | |
+
+Native-specific properties are all there, output type included: `quarkus.package.jar.type`, `quarkus.native.debug.enabled` and `quarkus.native.compression.enabled` are recorded with the value they were given, whether or not the build step reading them runs. The one differing property is [ignored](#the-configuration-dump-which-does-not-have-to-be-checked-in) by the extension.
 
 Two details of how the dump is keyed on:
 - properties are added as individual goal inputs rather than as a file, so a cache miss names the property responsible
