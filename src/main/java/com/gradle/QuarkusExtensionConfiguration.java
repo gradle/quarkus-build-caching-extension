@@ -70,13 +70,21 @@ final class QuarkusExtensionConfiguration {
         });
     }
 
+    /**
+     * Applies the Maven form of each key, {@code develocity.quarkus.cache.enabled} for
+     * {@code DEVELOCITY_QUARKUS_CACHE_ENABLED}.
+     *
+     * <p>The value is taken from the command line when it is given there, so that
+     * {@code -Ddevelocity.quarkus.cache.enabled=false} works on a project declaring nothing, and from the project
+     * properties otherwise. {@link MavenProject#getProperties()} only holds what the pom declares, which is why the
+     * command line has to be looked up separately.
+     */
     private void overrideFromMaven(MavenProject project) {
         configuration.stringPropertyNames().forEach((key) -> {
-            String mavenProperty = project.getProperties().getProperty(
-                    key.toLowerCase().replace("_", "."), ""
-            );
-            if (mavenProperty != null && !mavenProperty.isEmpty()) {
-                configuration.setProperty(key, mavenProperty);
+            String mavenKey = key.toLowerCase().replace("_", ".");
+            String value = System.getProperty(mavenKey, project.getProperties().getProperty(mavenKey, ""));
+            if (value != null && !value.isEmpty()) {
+                configuration.setProperty(key, value);
             }
         });
     }

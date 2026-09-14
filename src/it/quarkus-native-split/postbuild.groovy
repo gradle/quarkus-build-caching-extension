@@ -116,7 +116,10 @@ void assertArtifactDescriptorDescribesTheExecutable() {
 assertNativeImageCacheHit('09-split-native-build-artifact-descriptor-cache-hit.log')
 assertArtifactDescriptorDescribesTheExecutable()
 
-// The executable is restored from the cache on the last invocation
+// Disabling the cache with -D on the command line has to work as well as the pom property does
+assertNativeImageCacheDisabled('10-split-native-build-cache-disabled-cli.log')
+
+// The last invocation ran native-image for real, so the executable has to be there
 assertNativeExecutableExists()
 
 println('Verification succeeded')

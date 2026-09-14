@@ -319,6 +319,12 @@ The same configuration can be achieved with Maven properties:
 </properties>
 ```
 
+Any of them can also be passed on the command line, which takes precedence over the same property declared in the pom:
+
+```shell
+mvn clean package -Ddevelocity.quarkus.cache.enabled=false
+```
+
 ### Configuration file
 
 A configuration file can be used instead by defining its location (relative to the project root folder) either:
