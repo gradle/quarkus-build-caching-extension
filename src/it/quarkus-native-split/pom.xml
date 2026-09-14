@@ -79,6 +79,37 @@
                     </execution>
                 </executions>
             </plugin>
+
+            <!-- A cache hit on the native image generation skips the execution that would have
+                 rewritten target/quarkus-artifact.properties, leaving the descriptor as the
+                 augmentation wrote it: type=native-sources, pointing at the source jar. The
+                 descriptor cannot be declared as an output of the cached execution, since the
+                 augmentation also writes it and Develocity refuses to store a goal with an
+                 overlapping output. Restoring it here instead keeps @QuarkusIntegrationTest
+                 launching the native executable whether the build hit the cache or not. -->
+            <plugin>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>3.1.0</version>
+                <executions>
+                    <execution>
+                        <id>restore-quarkus-artifact-descriptor</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target xmlns:if="ant:if">
+                                <available file="${project.build.directory}/${project.build.finalName}-runner"
+                                           property="quarkus.native.executable.present"/>
+                                <echo if:set="quarkus.native.executable.present"
+                                      file="${project.build.directory}/quarkus-artifact.properties">type=native
+path=${project.build.finalName}-runner
+</echo>
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 

@@ -100,7 +100,23 @@ assertNativeImageCacheMiss('06-split-native-build-changed-config-cache-miss.log'
 assertNativeImageNotCacheable('07-split-native-build-stale-config-dump.log',
         'Quarkus configuration dump was not recorded by the native-sources build goal')
 
-// The last invocation ran native-image for real, so the executable has to be there
+void assertArtifactDescriptorDescribesTheExecutable() {
+    // @QuarkusIntegrationTest launches whatever this file describes: type=native-sources, which is
+    // what the augmentation writes, would launch the source jar instead of the native executable
+    File descriptor = new File(basedir, 'target/quarkus-artifact.properties')
+    assert descriptor.exists()
+    Properties descriptorProperties = new Properties()
+    descriptor.withInputStream { descriptorProperties.load(it) }
+    assert descriptorProperties.getProperty('type') == 'native'
+    assert descriptorProperties.getProperty('path') == 'quarkus-test-native-split-0.1-SNAPSHOT-runner'
+}
+
+// Case 9 repeats case 8, so native-image is skipped and the descriptor was put back by the
+// restore-quarkus-artifact-descriptor step rather than by the build goal re-running the augmentation
+assertNativeImageCacheHit('09-split-native-build-artifact-descriptor-cache-hit.log')
+assertArtifactDescriptorDescribesTheExecutable()
+
+// The executable is restored from the cache on the last invocation
 assertNativeExecutableExists()
 
 println('Verification succeeded')
