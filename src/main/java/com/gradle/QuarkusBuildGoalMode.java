@@ -14,17 +14,16 @@ import java.util.List;
 /**
  * The role played by a single execution of the Quarkus {@code build} goal.
  *
- * <p>A native build can be expressed either as one {@code build} execution doing everything, or as two executions:
- * the first one stopping after the augmentation ({@code quarkus.native.sources-only=true}), the second one turning the
- * resulting jar into a native executable. The two shapes need very different caching instructions, hence this
- * classification.
+ * <p>Only the split native build is cacheable: the first execution stops after the augmentation
+ * ({@code quarkus.native.sources-only=true}), the second one turns the resulting jar into a native executable. Any
+ * other layout, a lone {@code build} execution in particular, is left uncached.
  */
 enum QuarkusBuildGoalMode {
 
     /**
-     * The one and only {@code build} execution, producing the final artifact.
+     * Any {@code build} execution that is not part of a split native build. Not cacheable.
      */
-    SINGLE,
+    UNSUPPORTED,
 
     /**
      * First execution of a split native build: runs the augmentation only and produces {@code target/native-sources}.
@@ -54,8 +53,8 @@ enum QuarkusBuildGoalMode {
      * Classifies the given {@code build} goal execution.
      *
      * <p>A split native build is recognized when the project declares several {@code build} executions and exactly one
-     * of them requests {@code native-sources} through the mojo's {@code systemProperties}. Anything else keeps the
-     * historical single-execution behavior, so existing projects are unaffected.
+     * of them requests {@code native-sources} through the mojo's {@code systemProperties}. Anything else is
+     * {@link #UNSUPPORTED}.
      *
      * <p>Only the project model is looked at, never the filesystem: an execution has to be given the same caching
      * instructions on every build, whatever {@code target} happens to contain.
@@ -67,7 +66,7 @@ enum QuarkusBuildGoalMode {
     static QuarkusBuildGoalMode of(MojoExecution mojoExecution, MavenProject project) {
         List<PluginExecution> buildExecutions = quarkusBuildExecutions(project);
         if (buildExecutions.size() < 2) {
-            return SINGLE;
+            return UNSUPPORTED;
         }
 
         List<String> nativeSourcesExecutionIds = new ArrayList<>();
@@ -79,7 +78,7 @@ enum QuarkusBuildGoalMode {
 
         if (nativeSourcesExecutionIds.size() != 1) {
             // Not a split native build: either no execution asks for native-sources, or they all do
-            return SINGLE;
+            return UNSUPPORTED;
         }
 
         return nativeSourcesExecutionIds.contains(mojoExecution.getExecutionId()) ? NATIVE_SOURCES : NATIVE_IMAGE;
