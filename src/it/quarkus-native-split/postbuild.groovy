@@ -119,12 +119,10 @@ assertArtifactDescriptorDescribesTheExecutable()
 // Disabling the cache with -D on the command line has to work as well as the pom property does
 assertNativeImageCacheDisabled('10-split-native-build-cache-disabled-cli.log')
 
-// An extra output the augmentation also writes is dropped rather than declared, so that the native
-// image generation stays storable
-String overlapping = getContent('11-split-native-build-overlapping-extra-output.log')
-assert overlapping.contains('Extra output quarkus-artifact.properties is produced by the augmentation')
-assert !overlapping.contains('Adding extra output file quarkus-artifact.properties')
-assertNativeImageCacheHit('11-split-native-build-overlapping-extra-output.log')
+// A configured extra output is declared on the native image generation
+println('Verifying the extra output is declared on 11-split-native-build-extra-output.log...')
+assert getContent('11-split-native-build-extra-output.log')
+        .contains('[quarkus-build-caching-extension] Adding extra output file quarkus-artifact.properties')
 
 // Whether restored or rebuilt, the executable has to be there at the end
 assertNativeExecutableExists()

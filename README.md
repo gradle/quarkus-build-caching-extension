@@ -302,15 +302,15 @@ DEVELOCITY_QUARKUS_EXTRA_OUTPUT_FILES=helm/kubernetes/my-project/Chart.yaml,helm
 ```
 
 > [!IMPORTANT]
-> This only covers files the **augmentation does not also write**. A file produced by both executions is an [overlapping output](https://docs.develocity.ai/maven/current/maven-extension/), and Develocity resolves that by refusing to store the native image generation at all — trading the native image cache for a file that is rebuilt on every build anyway.
+> Only declare files the **augmentation does not also write**. A file produced by both executions is an [overlapping output](https://docs.develocity.ai/maven/current/maven-extension/), and Develocity resolves that by refusing to store the native image generation at all — the goal then re-runs `native-image` on every build, with nothing said about it in the Maven log. The build scan is where the reason shows up, and an empty cache directory is the symptom.
 >
-> The extension detects this and leaves such an output undeclared rather than letting it break the cache:
+> Check whether the augmentation already produces the path before declaring it, by running the augmentation on its own:
 >
+> ```shell
+> mvn clean package -Dquarkus.native.sources-only=true
 > ```
-> [WARNING] [quarkus-build-caching-extension] Extra output helm is produced by the augmentation, which runs on every build, so it is left out of the native image generation outputs: declaring it would be an overlapping output and the native image would stop being cached at all
-> ```
 >
-> Kubernetes manifests and Helm charts are generated during the augmentation — a `quarkus.native.sources-only` build of an application with `quarkus-kubernetes` already writes `target/kubernetes/kubernetes.yml` — so they fall in this case. Nothing is lost by leaving them out: the augmentation is never cached, so it regenerates them on every build, cache hit or not.
+> Anything present under `target` afterwards was written by the augmentation. Note that it is regenerated on every build regardless, since the augmentation is never cached.
 
 #### Build strategy
 
