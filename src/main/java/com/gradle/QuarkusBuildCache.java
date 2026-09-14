@@ -12,7 +12,9 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Caching instructions for the Quarkus build goal.
@@ -20,6 +22,12 @@ import java.util.Properties;
 final class QuarkusBuildCache {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(QuarkusBuildCache.class);
+
+    /**
+     * When the augmentation of a project was configured, which happens just before it runs. An extra output modified
+     * at or after that instant was written by this build's augmentation rather than left over from an earlier one.
+     */
+    private final Map<File, Long> augmentationConfiguredAt = new ConcurrentHashMap<>();
 
     private static final String TARGET_DIR = "target/";
 
@@ -156,6 +164,7 @@ final class QuarkusBuildCache {
      * {@link #configureNativeImageOutputs}.
      */
     private void configureNativeSourcesExecution(MojoMetadataProvider.Context context) {
+        augmentationConfiguredAt.put(context.getProject().getBasedir(), System.currentTimeMillis());
         LOGGER.info(QuarkusExtensionUtil.getLogMessage("Quarkus native-sources build goal marked as not cacheable"));
         context.outputs(outputs -> outputs.notCacheableBecause("the augmentation is inexpensive compared to the size of the native-sources directory"));
     }
@@ -215,7 +224,7 @@ final class QuarkusBuildCache {
             addQuarkusRecordedConfigInputs(inputs, quarkusRecordedProperties);
             addQuarkusConfigurationFilesInputs(inputs, quarkusRecordedProperties);
         });
-        configureNativeImageOutputs(context);
+        configureNativeImageOutputs(context, extensionConfiguration);
     }
 
     /**
@@ -264,11 +273,48 @@ final class QuarkusBuildCache {
      * purpose of the split. As a consequence the descriptor still points at the native-sources jar after a cache hit,
      * see the README for the implications.
      */
-    private void configureNativeImageOutputs(MojoMetadataProvider.Context context) {
+    private void configureNativeImageOutputs(MojoMetadataProvider.Context context, QuarkusExtensionConfiguration extensionConfiguration) {
         context.outputs(outputs -> {
             outputs.cacheable("the native image generation is CPU-bound with well-defined inputs and outputs");
             outputs.file("quarkusExe", TARGET_DIR + context.getProject().getBuild().getFinalName() + "-runner");
+
+            for (String extraOutputDir : extensionConfiguration.getExtraOutputDirs()) {
+                if (isExtraOutputDeclarable(context, extraOutputDir)) {
+                    LOGGER.debug(QuarkusExtensionUtil.getLogMessage("Adding extra output dir " + extraOutputDir));
+                    outputs.directory(extraOutputDir, TARGET_DIR + extraOutputDir);
+                }
+            }
+
+            for (String extraOutputFile : extensionConfiguration.getExtraOutputFiles()) {
+                if (isExtraOutputDeclarable(context, extraOutputFile)) {
+                    LOGGER.debug(QuarkusExtensionUtil.getLogMessage("Adding extra output file " + extraOutputFile));
+                    outputs.file(extraOutputFile, TARGET_DIR + extraOutputFile);
+                }
+            }
         });
+    }
+
+    /**
+     * An extra output the augmentation also writes cannot be declared here. Develocity treats a file an earlier goal
+     * execution produced as an overlapping output and stops storing this goal, which trades the native image cache for
+     * a file the augmentation rebuilds on every build anyway. Kubernetes manifests and Helm charts are generated during
+     * the augmentation, so they fall in this case and are deliberately left undeclared.
+     *
+     * <p>Whether the augmentation wrote it is told apart from a leftover of an earlier build by the modification time:
+     * the augmentation of this build has already run by the time this execution is configured.
+     */
+    private boolean isExtraOutputDeclarable(MojoMetadataProvider.Context context, String extraOutput) {
+        if (extraOutput.isEmpty()) {
+            return false;
+        }
+        File basedir = context.getProject().getBasedir();
+        File produced = new File(basedir, TARGET_DIR + extraOutput);
+        Long augmentedAt = augmentationConfiguredAt.get(basedir);
+        if (augmentedAt != null && produced.exists() && produced.lastModified() >= augmentedAt) {
+            LOGGER.warn(QuarkusExtensionUtil.getLogMessage("Extra output " + extraOutput + " is produced by the augmentation, which runs on every build, so it is left out of the native image generation outputs: declaring it would be an overlapping output and the native image would stop being cached at all"));
+            return false;
+        }
+        return true;
     }
 
 

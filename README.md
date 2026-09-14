@@ -234,7 +234,7 @@ Two things to know about it:
 
 - **`target/quarkus-artifact.properties` has to be restored, see [below](#restoring-the-quarkus-artifact-descriptor).** Quarkus writes this descriptor at the end of every augmentation, so both executions produce it, and it cannot be declared as an output of the native image generation.
 - **`quarkus.package.output-directory` cannot be used to work around it.** Relocating the augmentation output fails in `sources-only` mode (`NoSuchFileException` on the `lib` directory), reported against Quarkus 3.39.3.
-- **The same applies to any other file both executions write**: it cannot be declared as an output of the native image generation. Since the augmentation always runs, such files are produced on every build, just with the configuration of an augmentation-only build. This is why the extension has no extra-output configuration.
+- **The same applies to any other file both executions write**: it cannot be declared as an output of the native image generation. Since the augmentation always runs, such files are produced on every build, just with the configuration of an augmentation-only build. [Extra outputs](#extra-outputs) that fall in this case are detected and left undeclared.
 - **The local GraalVM version is not part of the key** for a non in-container build. `native-sources/graalvm.version` holds the version Quarkus *supports*, a hardcoded constant, not the installed one. The in-container build strategy, required by default, pins the whole toolchain through `native-sources/native-builder.image`.
 - Absolute paths appearing in `native-image.args`, which `quarkus.native.agent-configuration-directory` and PGO profiles introduce, make the key machine-specific.
 - **Run the two executions together.** The native image generation is keyed on whatever `target/native-sources` holds, so invoking it alone (`mvn quarkus:build@quarkus-native-image` without the augmentation, on a dirty `target`) keys it on a previous build's jar and can restore a stale executable. Always let the `package` phase run both.
@@ -288,6 +288,30 @@ Quarkus configuration has to be aligned in such case to store the dump-config in
 <quarkus.config-tracking.directory>.quarkus/ci</quarkus.config-tracking.directory>
 ```
 
+#### Extra outputs
+
+Outputs the native image generation produces beyond the executable can be declared, relative to the `target` folder.
+
+Directories (csv list):
+```properties
+DEVELOCITY_QUARKUS_EXTRA_OUTPUT_DIRS=helm
+```
+or specific files (csv list):
+```properties
+DEVELOCITY_QUARKUS_EXTRA_OUTPUT_FILES=helm/kubernetes/my-project/Chart.yaml,helm/kubernetes/my-project/values.yaml
+```
+
+> [!IMPORTANT]
+> This only covers files the **augmentation does not also write**. A file produced by both executions is an [overlapping output](https://docs.develocity.ai/maven/current/maven-extension/), and Develocity resolves that by refusing to store the native image generation at all — trading the native image cache for a file that is rebuilt on every build anyway.
+>
+> The extension detects this and leaves such an output undeclared rather than letting it break the cache:
+>
+> ```
+> [WARNING] [quarkus-build-caching-extension] Extra output helm is produced by the augmentation, which runs on every build, so it is left out of the native image generation outputs: declaring it would be an overlapping output and the native image would stop being cached at all
+> ```
+>
+> Kubernetes manifests and Helm charts are generated during the augmentation — a `quarkus.native.sources-only` build of an application with `quarkus-kubernetes` already writes `target/kubernetes/kubernetes.yml` — so they fall in this case. Nothing is lost by leaving them out: the augmentation is never cached, so it regenerates them on every build, cache hit or not.
+
 #### Build strategy
 
 The default is to enable caching only when the in-container build strategy is used.
@@ -315,6 +339,8 @@ The same configuration can be achieved with Maven properties:
     <develocity.quarkus.build.profile>prod</develocity.quarkus.build.profile>
     <develocity.quarkus.dump.config.prefix>quarkus</develocity.quarkus.dump.config.prefix>
     <develocity.quarkus.dump.config.suffix>config-dump-ci</develocity.quarkus.dump.config.suffix>
+    <develocity.quarkus.extra.output.dirs>helm</develocity.quarkus.extra.output.dirs>
+    <develocity.quarkus.extra.output.files>helm/kubernetes/${project.artifactId}/Chart.yaml,helm/kubernetes/${project.artifactId}/values.yaml</develocity.quarkus.extra.output.files>
     <develocity.quarkus.native.build.in.container.required>false</develocity.quarkus.native.build.in.container.required>
 </properties>
 ```
