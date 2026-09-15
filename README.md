@@ -129,7 +129,7 @@ The extension recognizes this layout on its own: no configuration flag turns it 
 
 ### What the extension sets up for you
 
-Two things the caching relies on are mechanical consequences of wanting it, so the extension takes care of them rather than making every project repeat them. Both only ever apply to a project declaring the split layout above.
+Three things the caching relies on are mechanical consequences of wanting it, so the extension takes care of them rather than making every project repeat them. All of them only ever apply to a project declaring the split layout above.
 
 **Quarkus config tracking.** The native image generation is keyed on the configuration the augmentation recorded, which Quarkus only writes when `quarkus.config-tracking.enabled` is set and the `track-config-changes` goal is bound. The extension sets the property and registers the goal on the project's own `quarkus-maven-plugin` — so it inherits the version already declared:
 
@@ -150,7 +150,9 @@ The extension rewrites it after the native image generation instead:
 
 A descriptor that already describes the executable is left untouched, so the `metadata.graalvm.version.*` entries a real native build records survive a cache miss. They are not reconstructed on a cache hit; `@QuarkusIntegrationTest` reads only `type` and `path`.
 
-Set `DEVELOCITY_QUARKUS_AUTO_CONFIGURE=false` to turn both off and configure everything in the pom yourself. Note that an injected execution does not show up in `mvn help:effective-pom`, which is why the extension logs what it registers.
+**The test goal inputs.** The dependencies Quarkus adds dynamically are declared as inputs of the surefire and failsafe goals, which a `@QuarkusTest` runs against. See [Quarkus test goals](#quarkus-test-goals) for the property that overrides it per module.
+
+Set `DEVELOCITY_QUARKUS_AUTO_CONFIGURE=false` to turn all three off and configure everything in the pom yourself. Note that an injected execution does not show up in `mvn help:effective-pom`, which is why the extension logs what it registers.
 
 > [!NOTE]
 > An in-container build produces a Linux executable. Running `@QuarkusIntegrationTest` against it therefore requires a Linux host — on macOS the launcher reports `cannot execute binary file`. This is a property of the in-container strategy, not of caching.
@@ -159,9 +161,9 @@ Set `DEVELOCITY_QUARKUS_AUTO_CONFIGURE=false` to turn both off and configure eve
 
 When the test goals (`maven-surefire-plugin` and `maven-failsafe-plugin`) run a `@QuarkusTest` or `@QuarkusIntegrationTest`, the [dependencies Quarkus adds implicitly](#quarkus-extra-dependencies) have to be goal [additional inputs](https://docs.develocity.ai/maven/current/maven-extension/#declaring_additional_inputs) for the test results to be cached consistently. For `maven-failsafe-plugin`, the Quarkus artifact descriptor `quarkus-artifact.properties` is added as well.
 
-On a project declaring the [split layout](#the-quarkus-maven-plugin-configuration) the extension does this by itself, on the same grounds as the rest of [what it sets up](#what-the-extension-sets-up-for-you): a project whose native build is cached runs Quarkus tests against those dependencies.
+On a project declaring the [split layout](#the-quarkus-maven-plugin-configuration) the extension adds them by itself, see [what the extension sets up for you](#what-the-extension-sets-up-for-you). Anywhere else nothing is added unless asked for.
 
-Declare the property yourself to override it, in particular to turn it off on a module whose tests do not use Quarkus and would only be keyed more widely for nothing:
+The `addQuarkusInputs` property overrides that decision either way. Turning it off is worth it on a module whose tests do not use Quarkus, where the wider key would only cost test re-runs:
 
 ```xml
 <plugins>
@@ -169,7 +171,7 @@ Declare the property yourself to override it, in particular to turn it off on a 
         <artifactId>maven-surefire-plugin</artifactId>
         <configuration>
             <properties>
-                <addQuarkusInputs>true</addQuarkusInputs>>
+                <addQuarkusInputs>false</addQuarkusInputs>
             </properties>
         </configuration>
     </plugin>
@@ -177,18 +179,16 @@ Declare the property yourself to override it, in particular to turn it off on a 
         <artifactId>maven-failsafe-plugin</artifactId>
         <configuration>
             <properties>
-                <addQuarkusInputs>true</addQuarkusInputs>>
+                <addQuarkusInputs>false</addQuarkusInputs>
             </properties>
         </configuration>
     </plugin>
 </plugins>
 ```
 
-Outside a split native build nothing is added unless the property asks for it.
-
 #### Quarkus extra dependencies
 
-Quarkus adds some dependencies to the build dynamically, so they have to be declared as inputs of the test goals explicitly.
+Quarkus adds some dependencies to the build dynamically, so they are not on any classpath Develocity would fingerprint on its own.
 
 They are listed in `target/quarkus-prod-dependencies.txt`, written by the `track-config-changes` goal, one absolute path per line. The fileset is added as a goal input with a `CLASSPATH` normalization strategy.
 
