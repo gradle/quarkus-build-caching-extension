@@ -19,13 +19,25 @@ A native build does two very different things in one goal: it augments the appli
 
 Declaring the `build` goal twice separates them, and the extension caches the second:
 
+```mermaid
+flowchart TD
+    subgraph pkg["mvn package"]
+        direction TB
+        A["<b>quarkus:build</b> @quarkus-jar<br/>quarkus.native.sources-only=true<br/>augmentation only — <b>never cached</b>, ~2s"]
+        B["<b>quarkus:build</b> @quarkus-native-image<br/>runs native-image<br/><b>cached</b> — 80s on a miss, 8s on a hit"]
+        A ==>|"target/native-sources/<br/>runner jar · native-image.args · native-builder.image"| B
+    end
+    B --> X["target/*-runner"]
+
+    classDef cheap fill:#eef6ff,stroke:#4a78b8,color:#10233b
+    classDef cached fill:#e8f6ec,stroke:#3f8f5a,color:#0e2b18
+    classDef out fill:#f4f4f4,stroke:#999,color:#222
+    class A cheap
+    class B cached
+    class X out
 ```
-package
- ├── quarkus:build (quarkus-jar)            always runs, seconds
- │      stops after the augmentation, writing target/native-sources
- └── quarkus:build (quarkus-native-image)   CACHED, minutes
-        keyed on that jar, the native-image arguments and the builder image
-```
+
+The first execution is cheap and always runs. The second is the one that costs minutes, and it is keyed only on what the first wrote — not on the compile classpath — so a change that does not reach the runner jar reuses the executable.
 
 ## Requirements
 
