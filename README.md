@@ -173,60 +173,6 @@ The caching can be disabled by setting:
 DEVELOCITY_QUARKUS_CACHE_ENABLED=false
 ```
 
-#### Configuration dump file names
-
-By default, the values below are used to compute the dump-config (`.quarkus/quarkus-prod-config-dump`) and
-config-check (`target/quarkus-prod-config-check`) file names:
-- _build profile_: prod
-- _file prefix_: quarkus
-- _file suffix_: config-dump
-
-Those values can be overridden, when CI and local have different Quarkus properties for instance:
-```properties
-DEVELOCITY_QUARKUS_BUILD_PROFILE=prod
-DEVELOCITY_QUARKUS_DUMP_CONFIG_PREFIX=quarkus
-DEVELOCITY_QUARKUS_DUMP_CONFIG_SUFFIX=config-dump-ci
-```
-
-If the default values are overridden, the Quarkus properties need to be set accordingly:
-```xml
-<quarkus.config-tracking.file-suffix>-config-dump-ci</quarkus.config-tracking.file-suffix>
-<quarkus.recorded-build-config.file>.quarkus/quarkus-prod-config-dump-ci</quarkus.recorded-build-config.file>
-```
-
-It is also possible to use subfolders in `.quarkus` to organize the different dump-config files. For instance, to have the dump-config at `.quarkus/ci/quarkus-prod-config-dump`:
-```properties
-DEVELOCITY_QUARKUS_DUMP_CONFIG_SUBFOLDER=ci
-```
-Quarkus configuration has to be aligned in such case to store the dump-config in the subfolder:
-```xml
-<quarkus.config-tracking.directory>.quarkus/ci</quarkus.config-tracking.directory>
-```
-
-#### Extra outputs
-
-Outputs the native image generation produces beyond the executable can be declared, relative to the `target` folder.
-
-Directories (csv list):
-```properties
-DEVELOCITY_QUARKUS_EXTRA_OUTPUT_DIRS=helm
-```
-or specific files (csv list):
-```properties
-DEVELOCITY_QUARKUS_EXTRA_OUTPUT_FILES=helm/kubernetes/my-project/Chart.yaml,helm/kubernetes/my-project/values.yaml
-```
-
-> [!IMPORTANT]
-> Only declare files the **augmentation does not also write**. A file produced by both executions is an [overlapping output](https://docs.develocity.ai/maven/current/maven-extension/), and Develocity resolves that by refusing to store the native image generation at all — the goal then re-runs `native-image` on every build, with nothing said about it in the Maven log. The build scan is where the reason shows up, and an empty cache directory is the symptom.
->
-> Check whether the augmentation already produces the path before declaring it, by running the augmentation on its own:
->
-> ```shell
-> mvn clean package -Dquarkus.native.sources-only=true
-> ```
->
-> Anything present under `target` afterwards was written by the augmentation. Note that it is regenerated on every build regardless, since the augmentation is never cached.
-
 #### Automatic configuration
 
 The extension registers the Quarkus goals its caching relies on, restores the artifact descriptor after a cache hit, and declares the Quarkus dependencies as inputs of the test goals — see [what the extension sets up for you](#what-the-extension-sets-up-for-you). To configure everything in the pom instead:
@@ -284,11 +230,6 @@ The same configuration can be achieved with Maven properties:
     <develocity.quarkus.cache.enabled>true</develocity.quarkus.cache.enabled>
     <develocity.quarkus.auto.configure>true</develocity.quarkus.auto.configure>
     <develocity.quarkus.normalize.native.image.config>true</develocity.quarkus.normalize.native.image.config>
-    <develocity.quarkus.build.profile>prod</develocity.quarkus.build.profile>
-    <develocity.quarkus.dump.config.prefix>quarkus</develocity.quarkus.dump.config.prefix>
-    <develocity.quarkus.dump.config.suffix>config-dump-ci</develocity.quarkus.dump.config.suffix>
-    <develocity.quarkus.extra.output.dirs>helm</develocity.quarkus.extra.output.dirs>
-    <develocity.quarkus.extra.output.files>helm/kubernetes/${project.artifactId}/Chart.yaml,helm/kubernetes/${project.artifactId}/values.yaml</develocity.quarkus.extra.output.files>
     <develocity.quarkus.native.build.in.container.required>false</develocity.quarkus.native.build.in.container.required>
 </properties>
 ```
@@ -347,7 +288,7 @@ Reasons the native image generation declines to be cached:
 | `Quarkus configuration dump was not recorded by the native-sources build goal` | the dump on disk is checked in or left over from an earlier build |
 | `Quarkus build strategy is not in-container` | see [the in-container build strategy](#in-container-build-strategy) |
 
-If the goal is cacheable but never hits, and the cache directory stays empty, the goal is being refused a store. The usual cause is an [overlapping output](#extra-outputs): a file declared here that the augmentation also writes. The Maven log says nothing about it — the build scan does.
+If the goal is cacheable but never hits, and the cache directory stays empty, the goal is being refused a store. The cause is an [overlapping output](https://docs.develocity.ai/maven/current/maven-extension/): a declared output that an earlier goal execution also writes. The Maven log says nothing about it — the build scan does.
 
 # What adopting it changes
 
@@ -380,7 +321,7 @@ Two consequences are worth knowing before adopting:
 
 Nothing in Quarkus core consumes that directory, and the descriptor can be [put back](#what-the-extension-sets-up-for-you). Anything of your own that reads them should not assume a cache miss.
 
-**Files both executions write cannot be cached outputs.** They are overlapping outputs, and declaring one stops the native image generation from being stored at all. See [extra outputs](#extra-outputs).
+**Only the executable is a cached output.** Everything else the build produces is written by the augmentation, which always runs, so it is there on every build regardless. It could not be cached anyway: a file both executions write is an overlapping output, and declaring one stops the native image generation from being stored at all.
 
 ## Build time
 
@@ -440,7 +381,7 @@ So a cache hit saves ~73s of `native-image` in exchange for transferring ~29 MB.
 
 - **`target/quarkus-artifact.properties` cannot be a declared output**, since the augmentation writes it too. The extension [restores it](#what-the-extension-sets-up-for-you) after the native image generation instead, but the `metadata.graalvm.version.*` entries are not reconstructed on a cache hit.
 - **`quarkus.package.output-directory` cannot be used to work around it.** Relocating the augmentation output fails in `sources-only` mode (`NoSuchFileException` on the `lib` directory), reported against Quarkus 3.39.3.
-- **The same applies to any other file both executions write**: it cannot be declared as an output of the native image generation. Since the augmentation always runs, such files are produced on every build, just with the configuration of an augmentation-only build. [Extra outputs](#extra-outputs) that fall in this case are detected and left undeclared.
+- **Only the executable is a cached output.** Everything else under `target` is written by the augmentation, which always runs, so it is present on every build whether the native image was rebuilt or restored. Declaring any of it as an output of the native image generation would be an [overlapping output](https://docs.develocity.ai/maven/current/maven-extension/) and would stop the goal being stored at all — which is why Kubernetes manifests and Helm charts, both written by the augmentation, are deliberately left alone.
 - **The local GraalVM version is not part of the key** for a non in-container build. `native-sources/graalvm.version` holds the version Quarkus *supports*, a hardcoded constant, not the installed one. The in-container build strategy, required by default, pins the whole toolchain through `native-sources/native-builder.image`.
 - Absolute paths appearing in `native-image.args`, which `quarkus.native.agent-configuration-directory` and PGO profiles introduce, make the key machine-specific.
 - **Run the two executions together.** The native image generation is keyed on whatever `target/native-sources` holds, so invoking it alone (`mvn quarkus:build@quarkus-native-image` without the augmentation, on a dirty `target`) keys it on a previous build's jar and can restore a stale executable. Always let the `package` phase run both.

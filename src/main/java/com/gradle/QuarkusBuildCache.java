@@ -220,7 +220,7 @@ final class QuarkusBuildCache {
             addQuarkusRecordedConfigInputs(inputs, quarkusRecordedProperties);
             addQuarkusConfigurationFilesInputs(inputs, quarkusRecordedProperties);
         });
-        configureNativeImageOutputs(context, extensionConfiguration);
+        configureNativeImageOutputs(context);
     }
 
     /**
@@ -285,24 +285,10 @@ final class QuarkusBuildCache {
      * purpose of the split. As a consequence the descriptor still points at the native-sources jar after a cache hit,
      * see the README for the implications.
      */
-    private void configureNativeImageOutputs(MojoMetadataProvider.Context context, QuarkusExtensionConfiguration extensionConfiguration) {
+    private void configureNativeImageOutputs(MojoMetadataProvider.Context context) {
         context.outputs(outputs -> {
             outputs.cacheable("the native image generation is CPU-bound with well-defined inputs and outputs");
             outputs.file("quarkusExe", TARGET_DIR + context.getProject().getBuild().getFinalName() + "-runner");
-
-            extensionConfiguration.getExtraOutputDirs().forEach(extraOutput -> {
-                if (!extraOutput.isEmpty()) {
-                    LOGGER.debug(QuarkusExtensionUtil.getLogMessage("Adding extra output dir " + extraOutput));
-                    outputs.directory(extraOutput, TARGET_DIR + extraOutput);
-                }
-            });
-
-            extensionConfiguration.getExtraOutputFiles().forEach(extraOutput -> {
-                if (!extraOutput.isEmpty()) {
-                    LOGGER.debug(QuarkusExtensionUtil.getLogMessage("Adding extra output file " + extraOutput));
-                    outputs.file(extraOutput, TARGET_DIR + extraOutput);
-                }
-            });
         });
     }
 

@@ -135,20 +135,15 @@ assertArtifactDescriptorDescribesTheExecutable()
 // Disabling the cache with -D on the command line has to work as well as the pom property does
 assertNativeImageCacheDisabled('10-split-native-build-cache-disabled-cli.log')
 
-// A configured extra output is declared on the native image generation
-println('Verifying the extra output is declared on 11-split-native-build-extra-output.log...')
-assert getContent('11-split-native-build-extra-output.log')
-        .contains('[quarkus-build-caching-extension] Adding extra output file quarkus-artifact.properties')
-
 // An explicit declaration is left alone: the goal runs once, registered by the project
-String explicit = getContent('12-split-native-build-explicit-config-tracking.log')
+String explicit = getContent('11-split-native-build-explicit-config-tracking.log')
 assert explicit =~ /track-config-changes \(my-own-config-tracking\)/
 assert !explicit.contains('[quarkus-build-caching-extension] Registered the track-config-changes goal')
 assert !explicit.contains('[quarkus-build-caching-extension] Enabled quarkus.config-tracking.enabled')
 
 // The ordering can be turned off
 println('Verifying the native-image configuration ordering can be disabled...')
-assert !getContent('13-split-native-build-no-json-ordering.log')
+assert !getContent('12-split-native-build-no-json-ordering.log')
         .contains('[quarkus-build-caching-extension] Ordered the native-image configuration of')
 
 // Whether restored or rebuilt, the executable has to be there at the end
