@@ -150,47 +150,12 @@ The extension rewrites it after the native image generation instead:
 
 A descriptor that already describes the executable is left untouched, so the `metadata.graalvm.version.*` entries a real native build records survive a cache miss. They are not reconstructed on a cache hit; `@QuarkusIntegrationTest` reads only `type` and `path`.
 
-**The test goal inputs.** The dependencies Quarkus adds dynamically are declared as inputs of the surefire and failsafe goals, which a `@QuarkusTest` runs against. See [Quarkus test goals](#quarkus-test-goals) for the property that overrides it per module.
+**The test goal inputs.** Quarkus adds dependencies to the build dynamically, so they sit on no classpath Develocity would fingerprint on its own, yet a `@QuarkusTest` runs against them. They are listed in `target/quarkus-prod-dependencies.txt` by the `track-config-changes` goal, and declared as an input of the surefire and failsafe goals with a `CLASSPATH` normalization strategy; failsafe also gets `quarkus-artifact.properties`. See [automatic configuration](#automatic-configuration) for the per-module override.
 
 Set `DEVELOCITY_QUARKUS_AUTO_CONFIGURE=false` to turn all three off and configure everything in the pom yourself. Note that an injected execution does not show up in `mvn help:effective-pom`, which is why the extension logs what it registers.
 
 > [!NOTE]
 > An in-container build produces a Linux executable. Running `@QuarkusIntegrationTest` against it therefore requires a Linux host — on macOS the launcher reports `cannot execute binary file`. This is a property of the in-container strategy, not of caching.
-
-### Quarkus Test goals
-
-When the test goals (`maven-surefire-plugin` and `maven-failsafe-plugin`) run a `@QuarkusTest` or `@QuarkusIntegrationTest`, the [dependencies Quarkus adds implicitly](#quarkus-extra-dependencies) have to be goal [additional inputs](https://docs.develocity.ai/maven/current/maven-extension/#declaring_additional_inputs) for the test results to be cached consistently. For `maven-failsafe-plugin`, the Quarkus artifact descriptor `quarkus-artifact.properties` is added as well.
-
-On a project declaring the [split layout](#the-quarkus-maven-plugin-configuration) the extension adds them by itself, see [what the extension sets up for you](#what-the-extension-sets-up-for-you). Anywhere else nothing is added unless asked for.
-
-The `addQuarkusInputs` property overrides that decision either way. Turning it off is worth it on a module whose tests do not use Quarkus, where the wider key would only cost test re-runs:
-
-```xml
-<plugins>
-    <plugin>
-        <artifactId>maven-surefire-plugin</artifactId>
-        <configuration>
-            <properties>
-                <addQuarkusInputs>false</addQuarkusInputs>
-            </properties>
-        </configuration>
-    </plugin>
-    <plugin>
-        <artifactId>maven-failsafe-plugin</artifactId>
-        <configuration>
-            <properties>
-                <addQuarkusInputs>false</addQuarkusInputs>
-            </properties>
-        </configuration>
-    </plugin>
-</plugins>
-```
-
-#### Quarkus extra dependencies
-
-Quarkus adds some dependencies to the build dynamically, so they are not on any classpath Develocity would fingerprint on its own.
-
-They are listed in `target/quarkus-prod-dependencies.txt`, written by the `track-config-changes` goal, one absolute path per line. The fileset is added as a goal input with a `CLASSPATH` normalization strategy.
 
 ## Configuration
 
@@ -264,9 +229,16 @@ DEVELOCITY_QUARKUS_EXTRA_OUTPUT_FILES=helm/kubernetes/my-project/Chart.yaml,helm
 
 #### Automatic configuration
 
-The extension registers the Quarkus goals its caching relies on, and restores the artifact descriptor after a cache hit — see [what the extension sets up for you](#what-the-extension-sets-up-for-you). To configure everything in the pom instead:
+The extension registers the Quarkus goals its caching relies on, restores the artifact descriptor after a cache hit, and declares the Quarkus dependencies as inputs of the test goals — see [what the extension sets up for you](#what-the-extension-sets-up-for-you). To configure everything in the pom instead:
 ```properties
 DEVELOCITY_QUARKUS_AUTO_CONFIGURE=false
+```
+
+The test goal inputs can also be overridden per module with the `addQuarkusInputs` property on `maven-surefire-plugin` and `maven-failsafe-plugin`, which is worth turning off where the tests do not use Quarkus and the wider key would only cost re-runs:
+```xml
+<properties>
+    <addQuarkusInputs>false</addQuarkusInputs>
+</properties>
 ```
 
 #### Lifting the in-container requirement
