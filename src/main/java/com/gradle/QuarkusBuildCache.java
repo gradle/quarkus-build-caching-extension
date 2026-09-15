@@ -3,6 +3,7 @@ package com.gradle;
 import com.gradle.develocity.agent.maven.api.cache.BuildCacheApi;
 import com.gradle.develocity.agent.maven.api.cache.MojoMetadataProvider;
 import com.gradle.develocity.agent.maven.api.cache.NormalizationProvider;
+import org.apache.maven.artifact.versioning.ComparableVersion;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,6 +39,9 @@ final class QuarkusBuildCache {
     // quarkus.native.sources-only differs by design between the two executions of a split native build: leaving it
     // tracked would make the config dump alternate between both values and invalidate the cache every other build
     private static final List<String> QUARKUS_IGNORED_PROPERTIES = Arrays.asList(QUARKUS_CONFIG_KEY_GRAALVM_HOME, QUARKUS_CONFIG_KEY_JAVA_HOME, QUARKUS_CONFIG_KEY_NATIVE_SOURCES_ONLY);
+
+    // Below this the augmentation is not reproducible enough for the cache to hit, see the README
+    private static final String MINIMUM_QUARKUS_VERSION = "3.39.3";
 
     // Quarkus artifact descriptor
     private static final String QUARKUS_ARTIFACT_PROPERTIES_FILE_NAME = "quarkus-artifact.properties";
@@ -169,6 +173,8 @@ final class QuarkusBuildCache {
      * has already run, so its dump describes the configuration of this build.
      */
     private void configureNativeImageExecution(MojoMetadataProvider.Context context, QuarkusExtensionConfiguration extensionConfiguration) {
+        warnIfQuarkusIsTooOld(context);
+
         // The key of this execution is the jar the native-sources execution produces. Without it there is nothing to
         // key on, which happens when the build is not native or when this execution is run on its own
         if (!QuarkusBuildGoalMode.nativeImageArgsFile(context.getProject()).exists()) {
@@ -215,6 +221,22 @@ final class QuarkusBuildCache {
             addQuarkusConfigurationFilesInputs(inputs, quarkusRecordedProperties);
         });
         configureNativeImageOutputs(context, extensionConfiguration);
+    }
+
+    /**
+     * The cache key is the jar the augmentation produces, so it is only as stable as that jar. Before the Quarkus
+     * reproducibility work it was not stable enough for the native image generation to ever be reused, which is worth
+     * saying out loud rather than leaving as a run of unexplained misses.
+     */
+    private void warnIfQuarkusIsTooOld(MojoMetadataProvider.Context context) {
+        String quarkusVersion = context.getMojoExecution().getPlugin().getVersion();
+        if (quarkusVersion == null) {
+            return;
+        }
+        if (new ComparableVersion(quarkusVersion).compareTo(new ComparableVersion(MINIMUM_QUARKUS_VERSION)) < 0) {
+            LOGGER.warn(QuarkusExtensionUtil.getLogMessage("Quarkus " + quarkusVersion + " is below " + MINIMUM_QUARKUS_VERSION
+                    + ", the minimum this extension supports: the augmentation is not reproducible enough for the native image cache to hit, so expect every build to miss"));
+        }
     }
 
     /**
