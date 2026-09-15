@@ -173,11 +173,10 @@ The key is the runner jar, the `native-image` arguments, the builder image and t
 
 | | |
 |---|---|
-| A module nothing touched, in a repository of several applications | **hit** — a change usually lands in one of them, and the rest are restored |
+| An application whose sources and dependencies have not changed | **hit** — in a repository holding several applications, a commit usually touches one of them and the others are restored |
 | A `provided` or `test` dependency added or upgraded | **hit** — it changes the compile classpath, not the runtime closure the native image is built from |
 | A test-only change | **hit** — test classes are in neither the runner jar nor `lib/` |
 | The same commit built on another machine, or in another pipeline | **hit** — the in-container builder image pins the toolchain, so entries are shared |
-| A project version carrying a commit id | **hit**, with [the two properties above](#a-version-that-moves-every-build) — a **miss** every single build without them |
 | A change to application code, or to a runtime dependency | **miss** — it reaches the runner jar |
 | A Quarkus build-time configuration change | **miss** — the augmentation records it, and it is part of the key |
 
