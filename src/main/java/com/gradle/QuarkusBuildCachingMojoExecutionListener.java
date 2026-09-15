@@ -59,7 +59,8 @@ public final class QuarkusBuildCachingMojoExecutionListener implements MojoExecu
         if (mode == QuarkusBuildGoalMode.NATIVE_SOURCES) {
             // the next execution is keyed on what this one just wrote, so order it before that happens
             if (extensionConfiguration.isNativeImageConfigNormalizationEnabled()) {
-                NativeImageConfigNormalizer.normalize(new File(project.getBasedir(), QuarkusBuildGoalMode.NATIVE_SOURCES_DIR));
+                NativeImageConfigNormalizer.normalize(new File(project.getBasedir(), QuarkusBuildGoalMode.NATIVE_SOURCES_DIR),
+                        extensionConfiguration.isVersionIndependentBuildEnabled());
             }
             return;
         }
@@ -72,6 +73,10 @@ public final class QuarkusBuildCachingMojoExecutionListener implements MojoExecu
         if (!executable.exists()) {
             // not a native build, or the native image generation declined to produce one
             return;
+        }
+
+        if (extensionConfiguration.isVersionIndependentBuildEnabled()) {
+            linkVersionedExecutable(project, executable);
         }
 
         File descriptor = new File(project.getBuild().getDirectory(), "quarkus-artifact.properties");
@@ -91,6 +96,34 @@ public final class QuarkusBuildCachingMojoExecutionListener implements MojoExecu
 
     @Override
     public void afterExecutionFailure(MojoExecutionEvent event) {
+    }
+
+    /**
+     * Gives the executable back the name it would have had, now that the build no longer carries the version in
+     * {@code build.finalName}.
+     *
+     * <p>A link rather than a move: the executable under its stable name is the declared output of the native image
+     * generation, and Develocity stores it once the goal is done. Taking it away first would leave nothing to store,
+     * which is the kind of failure the Maven log says nothing about.
+     */
+    private void linkVersionedExecutable(MavenProject project, File executable) {
+        String versionedName = project.getArtifactId() + "-" + project.getVersion() + "-runner";
+        if (versionedName.equals(executable.getName())) {
+            return;
+        }
+        File versioned = new File(executable.getParentFile(), versionedName);
+        try {
+            Files.deleteIfExists(versioned.toPath());
+            try {
+                Files.createLink(versioned.toPath(), executable.toPath());
+            } catch (IOException | UnsupportedOperationException e) {
+                // some file systems have no hard links, and a copy is only a cost
+                Files.copy(executable.toPath(), versioned.toPath());
+            }
+            LOGGER.info(QuarkusExtensionUtil.getLogMessage("Linked " + versionedName + " to the cached " + executable.getName()));
+        } catch (IOException e) {
+            LOGGER.warn(QuarkusExtensionUtil.getLogMessage("Unable to provide " + versionedName), e);
+        }
     }
 
     private boolean describesTheExecutable(File descriptor) {

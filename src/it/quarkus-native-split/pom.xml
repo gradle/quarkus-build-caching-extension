@@ -108,6 +108,20 @@
             </build>
         </profile>
 
+        <!-- Keeps the project version out of the cache key, and links the executable back afterwards -->
+        <profile>
+            <id>version-independent</id>
+            <activation>
+                <property>
+                    <name>version-independent</name>
+                </property>
+            </activation>
+            <properties>
+                <develocity.quarkus.version.independent.build>true</develocity.quarkus.version.independent.build>
+                <quarkus.application.version>stable</quarkus.application.version>
+            </properties>
+        </profile>
+
         <!-- Adds a provided dependency: it changes the compile classpath without changing the
              runtime closure the native image is built from -->
         <profile>

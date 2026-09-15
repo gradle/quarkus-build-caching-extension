@@ -41,6 +41,7 @@ final class NativeImageConfigNormalizer {
 
     private static final String NATIVE_IMAGE_CONFIG_PREFIX = "META-INF/native-image/";
     private static final String JSON_SUFFIX = ".json";
+    private static final String MAVEN_DESCRIPTOR_PREFIX = "META-INF/maven/";
 
     private NativeImageConfigNormalizer() {
     }
@@ -49,13 +50,21 @@ final class NativeImageConfigNormalizer {
      * Rewrites every jar of {@code nativeSourcesDir} whose {@code native-image} configuration is not already ordered.
      */
     static void normalize(File nativeSourcesDir) {
+        normalize(nativeSourcesDir, false);
+    }
+
+    /**
+     * @param dropMavenDescriptor also removes {@code META-INF/maven/**}, which carries the project version and reaches
+     *                            nothing the native image is built from
+     */
+    static void normalize(File nativeSourcesDir, boolean dropMavenDescriptor) {
         File[] jars = nativeSourcesDir.listFiles((dir, name) -> name.endsWith(".jar"));
         if (jars == null) {
             return;
         }
         for (File jar : jars) {
             try {
-                List<String> normalized = normalizeJar(jar);
+                List<String> normalized = normalizeJar(jar, dropMavenDescriptor);
                 if (!normalized.isEmpty()) {
                     LOGGER.info(QuarkusExtensionUtil.getLogMessage("Ordered the native-image configuration of " + jar.getName() + ": " + String.join(", ", normalized)));
                 }
@@ -67,7 +76,7 @@ final class NativeImageConfigNormalizer {
         }
     }
 
-    private static List<String> normalizeJar(File jar) throws IOException {
+    private static List<String> normalizeJar(File jar, boolean dropMavenDescriptor) throws IOException {
         Map<String, byte[]> entries = new LinkedHashMap<>();
         Map<String, Long> times = new LinkedHashMap<>();
         List<String> normalized = new ArrayList<>();
@@ -75,9 +84,16 @@ final class NativeImageConfigNormalizer {
         try (ZipFile zip = new ZipFile(jar)) {
             for (java.util.Enumeration<? extends ZipEntry> e = zip.entries(); e.hasMoreElements(); ) {
                 ZipEntry entry = e.nextElement();
+                if (dropMavenDescriptor && entry.isDirectory() && entry.getName().startsWith(MAVEN_DESCRIPTOR_PREFIX)) {
+                    continue;
+                }
                 if (entry.isDirectory()) {
                     entries.put(entry.getName(), null);
                     times.put(entry.getName(), entry.getTime());
+                    continue;
+                }
+                if (dropMavenDescriptor && entry.getName().startsWith(MAVEN_DESCRIPTOR_PREFIX)) {
+                    normalized.add(entry.getName() + " (removed)");
                     continue;
                 }
                 byte[] content = readAll(zip.getInputStream(entry));

@@ -30,6 +30,7 @@ public final class QuarkusBuildCachingLifecycleParticipant extends AbstractMaven
     private static final String DUMP_CURRENT_WHEN_RECORDED_UNAVAILABLE = "dumpCurrentWhenRecordedUnavailable";
     private static final String TRACK_CONFIG_CHANGES_EXECUTION_ID = "track-prod-config-changes";
     private static final String PROCESS_RESOURCES_PHASE = "process-resources";
+    private static final String QUARKUS_APPLICATION_VERSION_PROPERTY = "quarkus.application.version";
 
     @Override
     public void afterProjectsRead(MavenSession session) {
@@ -44,6 +45,34 @@ public final class QuarkusBuildCachingLifecycleParticipant extends AbstractMaven
             }
             enableConfigTracking(project);
             registerTrackConfigChanges(project);
+            if (extensionConfiguration.isVersionIndependentBuildEnabled()) {
+                stabilizeFinalName(project);
+            }
+        }
+    }
+
+    /**
+     * Takes the version out of {@code build.finalName}, which otherwise names the jar the native image generation is
+     * keyed on and appears in {@code native-image.args}. A project whose version carries a commit id would then have a
+     * different key on every commit even when nothing it builds has changed.
+     *
+     * <p>The executable keeps its usual name: {@link QuarkusBuildCachingMojoExecutionListener} links it back once the
+     * native image generation is done.
+     */
+    private void stabilizeFinalName(MavenProject project) {
+        String finalName = project.getBuild().getFinalName();
+        String version = project.getVersion();
+        if (finalName == null || version == null || !finalName.contains(version)) {
+            // already free of the version, nothing to do
+            return;
+        }
+        project.getBuild().setFinalName(project.getArtifactId());
+        LOGGER.info(QuarkusExtensionUtil.getLogMessage("Building as '" + project.getArtifactId() + "' rather than '" + finalName
+                + "', so that the version stays out of the native image cache key"));
+
+        if (project.getProperties().getProperty(QUARKUS_APPLICATION_VERSION_PROPERTY) == null
+                && System.getProperty(QUARKUS_APPLICATION_VERSION_PROPERTY) == null) {
+            LOGGER.warn(QuarkusExtensionUtil.getLogMessage(QUARKUS_APPLICATION_VERSION_PROPERTY + " is not set, so it defaults to the project version and is compiled into the application: the native image cache key will still change on every version. Set it to a value that does not move."));
         }
     }
 

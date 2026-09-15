@@ -15,6 +15,9 @@ final class QuarkusExtensionConfiguration {
     // Automatic configuration of the Quarkus goals the caching relies on
     private static final String DEVELOCITY_QUARKUS_KEY_AUTO_CONFIGURE = "DEVELOCITY_QUARKUS_AUTO_CONFIGURE";
 
+    // Keeps the project version out of what the native image generation is keyed on
+    private static final String DEVELOCITY_QUARKUS_KEY_VERSION_INDEPENDENT_BUILD = "DEVELOCITY_QUARKUS_VERSION_INDEPENDENT_BUILD";
+
     // Ordering of the native-image configuration Quarkus generates
     private static final String DEVELOCITY_QUARKUS_KEY_NORMALIZE_NATIVE_IMAGE_CONFIG = "DEVELOCITY_QUARKUS_NORMALIZE_NATIVE_IMAGE_CONFIG";
 
@@ -43,6 +46,8 @@ final class QuarkusExtensionConfiguration {
         configuration.setProperty(DEVELOCITY_QUARKUS_KEY_NATIVE_BUILD_IN_CONTAINER_REQUIRED, Boolean.TRUE.toString());
         configuration.setProperty(DEVELOCITY_QUARKUS_KEY_AUTO_CONFIGURE, Boolean.TRUE.toString());
         configuration.setProperty(DEVELOCITY_QUARKUS_KEY_NORMALIZE_NATIVE_IMAGE_CONFIG, Boolean.TRUE.toString());
+        // opt-in: it changes how the build names its artifacts
+        configuration.setProperty(DEVELOCITY_QUARKUS_KEY_VERSION_INDEPENDENT_BUILD, Boolean.FALSE.toString());
     }
 
     private void overrideFromEnvironment() {
@@ -93,6 +98,13 @@ final class QuarkusExtensionConfiguration {
      */
     boolean isAutoConfigureEnabled() {
         return !Boolean.FALSE.toString().equals(configuration.get(DEVELOCITY_QUARKUS_KEY_AUTO_CONFIGURE));
+    }
+
+    /**
+     * @return whether the project version is kept out of what the native image generation is keyed on
+     */
+    boolean isVersionIndependentBuildEnabled() {
+        return Boolean.TRUE.toString().equals(configuration.get(DEVELOCITY_QUARKUS_KEY_VERSION_INDEPENDENT_BUILD));
     }
 
     /**

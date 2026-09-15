@@ -122,7 +122,11 @@ void assertArtifactDescriptorDescribesTheExecutable() {
     Properties descriptorProperties = new Properties()
     descriptor.withInputStream { descriptorProperties.load(it) }
     assert descriptorProperties.getProperty('type') == 'native'
-    assert descriptorProperties.getProperty('path') == 'quarkus-test-native-split-0.1-SNAPSHOT-runner'
+    // the name depends on whether the last invocation kept the version out of the build, so check the
+    // descriptor points at an executable that is actually there rather than at one particular name
+    File described = new File(basedir, 'target/' + descriptorProperties.getProperty('path'))
+    assert described.exists()
+    assert described.length() > 0
 }
 
 // Case 9 repeats case 8, so native-image is skipped and the descriptor was put back by the
@@ -145,6 +149,15 @@ assert !explicit.contains('[quarkus-build-caching-extension] Enabled quarkus.con
 println('Verifying the native-image configuration ordering can be disabled...')
 assert !getContent('12-split-native-build-no-json-ordering.log')
         .contains('[quarkus-build-caching-extension] Ordered the native-image configuration of')
+
+// The version is kept out of the key, and the executable is available under both names
+println('Verifying the version-independent build on 13-split-native-build-version-independent.log...')
+String versionIndependent = getContent('13-split-native-build-version-independent.log')
+assert versionIndependent.contains("Building as 'quarkus-test-native-split' rather than 'quarkus-test-native-split-0.1-SNAPSHOT'")
+assert versionIndependent.contains('pom.properties (removed)')
+assert versionIndependent.contains('Linked quarkus-test-native-split-0.1-SNAPSHOT-runner to the cached quarkus-test-native-split-runner')
+assert new File(basedir, 'target/quarkus-test-native-split-runner').exists()
+assert new File(basedir, 'target/quarkus-test-native-split-0.1-SNAPSHOT-runner').exists()
 
 // Whether restored or rebuilt, the executable has to be there at the end
 assertNativeExecutableExists()
