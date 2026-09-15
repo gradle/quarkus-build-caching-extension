@@ -139,7 +139,7 @@ Then declare the `build` goal twice, the first one stopping at the augmentation:
 </plugin>
 ```
 
-That is all. The extension recognizes the layout on its own — no flag turns it on — and sets up the rest: Quarkus config tracking, the artifact descriptor after a cache hit, and the test goal inputs. See [what it sets up for you](doc/how-it-works.md#what-the-extension-sets-up-for-you).
+That is all. The extension recognizes the layout on its own and sets up the rest: Quarkus config tracking, the artifact descriptor after a cache hit, and the test goal inputs. See [what it sets up for you](doc/how-it-works.md#what-the-extension-sets-up-for-you).
 
 ## What to expect
 
