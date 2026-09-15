@@ -40,6 +40,9 @@ final class QuarkusExtensionConfiguration {
     // Extra output files key
     private static final String DEVELOCITY_QUARKUS_KEY_EXTRA_OUTPUT_FILES = "DEVELOCITY_QUARKUS_EXTRA_OUTPUT_FILES";
 
+    // Automatic configuration of the Quarkus goals the caching relies on
+    private static final String DEVELOCITY_QUARKUS_KEY_AUTO_CONFIGURE = "DEVELOCITY_QUARKUS_AUTO_CONFIGURE";
+
     // Native build in container required key
     private static final String DEVELOCITY_QUARKUS_KEY_NATIVE_BUILD_IN_CONTAINER_REQUIRED = "DEVELOCITY_QUARKUS_NATIVE_BUILD_IN_CONTAINER_REQUIRED";
 
@@ -69,6 +72,7 @@ final class QuarkusExtensionConfiguration {
         configuration.setProperty(DEVELOCITY_QUARKUS_KEY_EXTRA_OUTPUT_DIRS, "");
         configuration.setProperty(DEVELOCITY_QUARKUS_KEY_EXTRA_OUTPUT_FILES, "");
         configuration.setProperty(DEVELOCITY_QUARKUS_KEY_NATIVE_BUILD_IN_CONTAINER_REQUIRED, Boolean.TRUE.toString());
+        configuration.setProperty(DEVELOCITY_QUARKUS_KEY_AUTO_CONFIGURE, Boolean.TRUE.toString());
     }
 
     private void overrideFromEnvironment() {
@@ -112,6 +116,13 @@ final class QuarkusExtensionConfiguration {
     boolean isQuarkusCacheEnabled() {
         // Quarkus cache is enabled by default
         return !Boolean.FALSE.toString().equals(configuration.get(DEVELOCITY_QUARKUS_KEY_CACHE_ENABLED));
+    }
+
+    /**
+     * @return whether the extension registers the Quarkus goals its caching relies on by itself
+     */
+    boolean isAutoConfigureEnabled() {
+        return !Boolean.FALSE.toString().equals(configuration.get(DEVELOCITY_QUARKUS_KEY_AUTO_CONFIGURE));
     }
 
     /**

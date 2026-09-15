@@ -8,5 +8,19 @@
             <description>Makes the Quarkus goals cacheable</description>
             <isolated-realm>false</isolated-realm>
         </component>
+        <component>
+            <role>org.apache.maven.AbstractMavenLifecycleParticipant</role>
+            <role-hint>quarkus-build-caching-lifecycle-participant</role-hint>
+            <implementation>com.gradle.QuarkusBuildCachingLifecycleParticipant</implementation>
+            <description>Registers the Quarkus goals the caching relies on</description>
+            <isolated-realm>false</isolated-realm>
+        </component>
+        <component>
+            <role>org.apache.maven.execution.MojoExecutionListener</role>
+            <role-hint>quarkus-build-caching-artifact-descriptor-restorer</role-hint>
+            <implementation>com.gradle.QuarkusArtifactDescriptorRestorer</implementation>
+            <description>Restores the Quarkus artifact descriptor after a cache hit</description>
+            <isolated-realm>false</isolated-realm>
+        </component>
     </components>
 </component-set>

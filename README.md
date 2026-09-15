@@ -89,15 +89,7 @@ Note on the Compatibility with The Develocity extension:
 
 ### The `quarkus-maven-plugin` configuration
 
-Enable [Quarkus config tracking](https://quarkus.io/guides/config-reference#dumping-build-time-configuration-options-read-during-the-build) in `pom.xml`:
-
-```xml
-<properties>
-    <quarkus.config-tracking.enabled>true</quarkus.config-tracking.enabled>
-</properties>
-```
-
-Add the `track-prod-config-changes` execution to the `quarkus-maven-plugin` configuration:
+Declare the `build` goal twice: once stopping after the augmentation, once turning the resulting jar into the native executable.
 
 ```xml
 <plugin>
@@ -106,16 +98,6 @@ Add the `track-prod-config-changes` execution to the `quarkus-maven-plugin` conf
     <version>${quarkus.platform.version}</version>
     <extensions>true</extensions>
     <executions>
-        <execution>
-            <id>track-prod-config-changes</id>
-            <phase>process-resources</phase>
-            <goals>
-                <goal>track-config-changes</goal>
-            </goals>
-            <configuration>
-                <dumpCurrentWhenRecordedUnavailable>true</dumpCurrentWhenRecordedUnavailable>
-            </configuration>
-        </execution>
         <!-- Step 1: augmentation only, produces target/native-sources -->
         <execution>
             <id>quarkus-jar</id>
@@ -141,51 +123,34 @@ Add the `track-prod-config-changes` execution to the `quarkus-maven-plugin` conf
 </plugin>
 ```
 
-A native build does two very different things: it augments the application into a jar, then hands that jar to `native-image`. The first part takes seconds, the second one minutes. Declared as one execution, the expensive part would be keyed on the inputs of the cheap one, the compile classpath in particular. [`quarkus.native.sources-only`](https://quarkus.io/guides/native-reference#build-native-image-separately) makes Quarkus stop right after the augmentation, leaving in `target/native-sources` the runner jar, its dependencies, the `native-image` arguments and, for an in-container build, the builder image to use.
+That is the whole setup. A native build does two very different things: it augments the application into a jar, then hands that jar to `native-image`. The first part takes seconds, the second one minutes. Declared as one execution, the expensive part would be keyed on the inputs of the cheap one, the compile classpath in particular. [`quarkus.native.sources-only`](https://quarkus.io/guides/native-reference#build-native-image-separately) makes Quarkus stop right after the augmentation, leaving in `target/native-sources` the runner jar, its dependencies, the `native-image` arguments and, for an in-container build, the builder image to use.
 
-The extension recognizes this layout on its own: no configuration flag turns it on. It applies as soon as a project declares several `build` executions of which exactly one requests `native-sources` through the mojo's `systemProperties`.
+The extension recognizes this layout on its own: no configuration flag turns it on. It applies as soon as a project declares several `build` executions of which exactly one requests `native-sources` through the mojo's `systemProperties`. The execution ids are free, the extension does not match on them.
 
-The execution ids are free, the extension does not match on them.
+### What the extension sets up for you
 
-### Restoring the Quarkus artifact descriptor
+Two things the caching relies on are mechanical consequences of wanting it, so the extension takes care of them rather than making every project repeat them. Both only ever apply to a project declaring the split layout above.
 
-`target/quarkus-artifact.properties` tells `@QuarkusIntegrationTest` what to launch. The augmentation writes it as `type=native-sources`, pointing at the source jar, and only the native image generation corrects it to `type=native`. That execution is the cached one, so on a cache hit it does not run and the descriptor is left describing the wrong artifact — native integration tests would then silently run against the jar, passing or failing depending on cache state.
+**Quarkus config tracking.** The native image generation is keyed on the configuration the augmentation recorded, which Quarkus only writes when `quarkus.config-tracking.enabled` is set and the `track-config-changes` goal is bound. The extension sets the property and registers the goal on the project's own `quarkus-maven-plugin` — so it inherits the version already declared:
 
-The descriptor cannot simply be declared as an output of the native image generation. The augmentation also writes it, which makes it an [overlapping output](https://docs.develocity.ai/maven/current/maven-extension/); Develocity resolves that by refusing to store the later execution, so the goal is never cached at all. Measured on a project of this shape, three consecutive builds all re-ran `native-image` and the cache directory stayed at 20 KB — no warning in the Maven log, only on the build scan.
-
-Rewriting the descriptor after the `package` phase is the way around it:
-
-```xml
-<plugin>
-    <artifactId>maven-antrun-plugin</artifactId>
-    <version>3.1.0</version>
-    <executions>
-        <execution>
-            <id>restore-quarkus-artifact-descriptor</id>
-            <phase>package</phase>
-            <goals>
-                <goal>run</goal>
-            </goals>
-            <configuration>
-                <target xmlns:if="ant:if">
-                    <available file="${project.build.directory}/${project.build.finalName}-runner"
-                               property="quarkus.native.executable.present"/>
-                    <echo if:set="quarkus.native.executable.present"
-                          file="${project.build.directory}/quarkus-artifact.properties">type=native
-path=${project.build.finalName}-runner
-</echo>
-                </target>
-            </configuration>
-        </execution>
-    </executions>
-</plugin>
+```
+[INFO] [quarkus-build-caching-extension] Enabled quarkus.config-tracking.enabled on rest-villains
+[INFO] [quarkus-build-caching-extension] Registered the track-config-changes goal on rest-villains
 ```
 
-Declare it after the `quarkus-maven-plugin`, so it runs once both `build` executions are done. The `available` guard leaves the descriptor alone when the build produced no native executable.
+Declare either yourself and the extension leaves it alone, including when you declare `quarkus.config-tracking.enabled=false`.
 
-Two things to know about it:
-- the `metadata.graalvm.version.*` entries a real native build records are not restored. They are informational; `@QuarkusIntegrationTest` only reads `type` and `path`.
-- it also stabilizes the failsafe goal's own cache key, since the extension declares this descriptor as an input to that goal when `addQuarkusInputs` is set.
+**The Quarkus artifact descriptor.** `target/quarkus-artifact.properties` tells `@QuarkusIntegrationTest` what to launch. The augmentation writes it as `type=native-sources`, pointing at the source jar, and only the native image generation corrects it — but that is the cached execution, so on a cache hit it does not run and native integration tests would launch the jar instead of the executable. It cannot be a declared output of that execution either: the augmentation writes it too, which makes it an [overlapping output](https://docs.develocity.ai/maven/current/maven-extension/), and Develocity resolves that by refusing to store the goal at all.
+
+The extension rewrites it after the native image generation instead:
+
+```
+[INFO] [quarkus-build-caching-extension] Restored quarkus-artifact.properties, which the augmentation left describing the native sources
+```
+
+A descriptor that already describes the executable is left untouched, so the `metadata.graalvm.version.*` entries a real native build records survive a cache miss. They are not reconstructed on a cache hit; `@QuarkusIntegrationTest` reads only `type` and `path`.
+
+Set `DEVELOCITY_QUARKUS_AUTO_CONFIGURE=false` to turn both off and configure everything in the pom yourself. Note that an injected execution does not show up in `mvn help:effective-pom`, which is why the extension logs what it registers.
 
 > [!NOTE]
 > An in-container build produces a Linux executable. Running `@QuarkusIntegrationTest` against it therefore requires a Linux host — on macOS the launcher reports `cannot execute binary file`. This is a property of the in-container strategy, not of caching.
@@ -296,6 +261,13 @@ DEVELOCITY_QUARKUS_EXTRA_OUTPUT_FILES=helm/kubernetes/my-project/Chart.yaml,helm
 >
 > Anything present under `target` afterwards was written by the augmentation. Note that it is regenerated on every build regardless, since the augmentation is never cached.
 
+#### Automatic configuration
+
+The extension registers the Quarkus goals its caching relies on, and restores the artifact descriptor after a cache hit — see [what the extension sets up for you](#what-the-extension-sets-up-for-you). To configure everything in the pom instead:
+```properties
+DEVELOCITY_QUARKUS_AUTO_CONFIGURE=false
+```
+
 #### Lifting the in-container requirement
 
 The default is to enable caching only when the in-container build strategy is used.
@@ -320,6 +292,7 @@ The same configuration can be achieved with Maven properties:
 ```xml
 <properties>
     <develocity.quarkus.cache.enabled>true</develocity.quarkus.cache.enabled>
+    <develocity.quarkus.auto.configure>true</develocity.quarkus.auto.configure>
     <develocity.quarkus.build.profile>prod</develocity.quarkus.build.profile>
     <develocity.quarkus.dump.config.prefix>quarkus</develocity.quarkus.dump.config.prefix>
     <develocity.quarkus.dump.config.suffix>config-dump-ci</develocity.quarkus.dump.config.suffix>
@@ -410,11 +383,11 @@ Two consequences are worth knowing before adopting:
 | | after a cache miss | after a cache hit |
 |---|---|---|
 | `target/<finalName>-runner` | built | restored from the cache |
-| `target/quarkus-artifact.properties` | `type=native` | `type=native-sources` unless [restored](#restoring-the-quarkus-artifact-descriptor) |
+| `target/quarkus-artifact.properties` | `type=native` | `type=native-sources` unless [restored](#what-the-extension-sets-up-for-you) |
 | `metadata.graalvm.version.*` in that descriptor | present | absent |
 | `target/<finalName>-native-image-source-jar/` | present | absent — the augmentation deletes it, and only the native image generation recreates it |
 
-Nothing in Quarkus core consumes that directory, and the descriptor can be [put back](#restoring-the-quarkus-artifact-descriptor). Anything of your own that reads them should not assume a cache miss.
+Nothing in Quarkus core consumes that directory, and the descriptor can be [put back](#what-the-extension-sets-up-for-you). Anything of your own that reads them should not assume a cache miss.
 
 **Files both executions write cannot be cached outputs.** They are overlapping outputs, and declaring one stops the native image generation from being stored at all. See [extra outputs](#extra-outputs).
 
@@ -467,7 +440,7 @@ So a cache hit saves ~73s of `native-image` in exchange for transferring ~29 MB.
 
 ## Limitations
 
-- **`target/quarkus-artifact.properties` has to be restored, see [below](#restoring-the-quarkus-artifact-descriptor).** Quarkus writes this descriptor at the end of every augmentation, so both executions produce it, and it cannot be declared as an output of the native image generation.
+- **`target/quarkus-artifact.properties` cannot be a declared output**, since the augmentation writes it too. The extension [restores it](#what-the-extension-sets-up-for-you) after the native image generation instead, but the `metadata.graalvm.version.*` entries are not reconstructed on a cache hit.
 - **`quarkus.package.output-directory` cannot be used to work around it.** Relocating the augmentation output fails in `sources-only` mode (`NoSuchFileException` on the `lib` directory), reported against Quarkus 3.39.3.
 - **The same applies to any other file both executions write**: it cannot be declared as an output of the native image generation. Since the augmentation always runs, such files are produced on every build, just with the configuration of an augmentation-only build. [Extra outputs](#extra-outputs) that fall in this case are detected and left undeclared.
 - **The local GraalVM version is not part of the key** for a non in-container build. `native-sources/graalvm.version` holds the version Quarkus *supports*, a hardcoded constant, not the installed one. The in-container build strategy, required by default, pins the whole toolchain through `native-sources/native-builder.image`.
@@ -534,7 +507,7 @@ Notably absent: the compile classpath, the config-check file and the Quarkus dep
 
 ## The Quarkus configuration dump
 
-[Config tracking](#the-quarkus-maven-plugin-configuration) must be enabled: the native image generation keys on the configuration dump, and refuses to be cached without one.
+[Config tracking](#what-the-extension-sets-up-for-you) must be enabled: the native image generation keys on the configuration dump, and refuses to be cached without one.
 
 Not every Quarkus property reaches `native-image.args`. The build steps running *after* `native-image` are the reason: `quarkus.native.compression.*` drives the UPX compression of the produced executable, is recorded in the dump, and appears in neither the jar nor the arguments. Keying on the jar and the arguments alone would hand back an executable compressed with the wrong settings.
 

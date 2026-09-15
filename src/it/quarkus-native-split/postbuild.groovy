@@ -14,6 +14,14 @@ void assertAugmentationExecuted(String log) {
     assert log.contains('The sources for a subsequent native-image run')
 }
 
+void assertAutoConfigured(String logFile) {
+    String log = getContent(logFile)
+    assert log.contains('[quarkus-build-caching-extension] Enabled quarkus.config-tracking.enabled on quarkus-test-native-split')
+    assert log.contains('[quarkus-build-caching-extension] Registered the track-config-changes goal on quarkus-test-native-split')
+    // the goal the extension registered really is bound and runs
+    assert log =~ /track-config-changes \(track-prod-config-changes\)/
+}
+
 void assertNativeImageCacheable(String logFile) {
     println("Verifying native image is cacheable on ${logFile}...")
     String log = getContent(logFile)
@@ -79,6 +87,8 @@ void assertNativeExecutableExists() {
 // Quarkus configuration dump recorded by a previous build.
 // Whether this first invocation is a hit or a miss depends on what target/build-cache already
 // holds, so only cacheability is asserted here.
+// the pom declares only the two build executions: the rest is registered by the extension
+assertAutoConfigured('01-split-native-build-cacheable.log')
 assertNativeImageCacheable('01-split-native-build-cacheable.log')
 assertAugmentationNotCached('01-split-native-build-cacheable.log')
 
@@ -112,8 +122,10 @@ void assertArtifactDescriptorDescribesTheExecutable() {
 }
 
 // Case 9 repeats case 8, so native-image is skipped and the descriptor was put back by the
-// restore-quarkus-artifact-descriptor step rather than by the build goal re-running the augmentation
+// extension rather than by the build goal re-running the augmentation
 assertNativeImageCacheHit('09-split-native-build-artifact-descriptor-cache-hit.log')
+assert getContent('09-split-native-build-artifact-descriptor-cache-hit.log')
+        .contains('[quarkus-build-caching-extension] Restored quarkus-artifact.properties')
 assertArtifactDescriptorDescribesTheExecutable()
 
 // Disabling the cache with -D on the command line has to work as well as the pom property does
@@ -123,6 +135,12 @@ assertNativeImageCacheDisabled('10-split-native-build-cache-disabled-cli.log')
 println('Verifying the extra output is declared on 11-split-native-build-extra-output.log...')
 assert getContent('11-split-native-build-extra-output.log')
         .contains('[quarkus-build-caching-extension] Adding extra output file quarkus-artifact.properties')
+
+// An explicit declaration is left alone: the goal runs once, registered by the project
+String explicit = getContent('12-split-native-build-explicit-config-tracking.log')
+assert explicit =~ /track-config-changes \(my-own-config-tracking\)/
+assert !explicit.contains('[quarkus-build-caching-extension] Registered the track-config-changes goal')
+assert !explicit.contains('[quarkus-build-caching-extension] Enabled quarkus.config-tracking.enabled')
 
 // Whether restored or rebuilt, the executable has to be there at the end
 assertNativeExecutableExists()

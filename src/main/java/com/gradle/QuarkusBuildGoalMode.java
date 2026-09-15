@@ -36,6 +36,8 @@ enum QuarkusBuildGoalMode {
      */
     NATIVE_IMAGE;
 
+    static final String TRACK_CONFIG_CHANGES_GOAL = "track-config-changes";
+
     static final String NATIVE_SOURCES_DIR = "target/native-sources";
     static final String NATIVE_IMAGE_ARGS_FILE_NAME = "native-image.args";
     static final String NATIVE_BUILDER_IMAGE_FILE_NAME = "native-builder.image";
@@ -64,9 +66,28 @@ enum QuarkusBuildGoalMode {
      * @return the role played by this execution
      */
     static QuarkusBuildGoalMode of(MojoExecution mojoExecution, MavenProject project) {
+        String nativeSourcesExecutionId = nativeSourcesExecutionId(project);
+        if (nativeSourcesExecutionId == null) {
+            return UNSUPPORTED;
+        }
+        return nativeSourcesExecutionId.equals(mojoExecution.getExecutionId()) ? NATIVE_SOURCES : NATIVE_IMAGE;
+    }
+
+    /**
+     * @return whether the project declares the two {@code build} executions of a split native build
+     */
+    static boolean isSplitNativeBuild(MavenProject project) {
+        return nativeSourcesExecutionId(project) != null;
+    }
+
+    /**
+     * @return the id of the execution requesting {@code native-sources}, or {@code null} when the project does not
+     *         declare a split native build
+     */
+    private static String nativeSourcesExecutionId(MavenProject project) {
         List<PluginExecution> buildExecutions = quarkusBuildExecutions(project);
         if (buildExecutions.size() < 2) {
-            return UNSUPPORTED;
+            return null;
         }
 
         List<String> nativeSourcesExecutionIds = new ArrayList<>();
@@ -78,10 +99,21 @@ enum QuarkusBuildGoalMode {
 
         if (nativeSourcesExecutionIds.size() != 1) {
             // Not a split native build: either no execution asks for native-sources, or they all do
-            return UNSUPPORTED;
+            return null;
         }
+        return nativeSourcesExecutionIds.get(0);
+    }
 
-        return nativeSourcesExecutionIds.contains(mojoExecution.getExecutionId()) ? NATIVE_SOURCES : NATIVE_IMAGE;
+    /**
+     * @return the {@code quarkus-maven-plugin} declared by the project, or {@code null} when there is none
+     */
+    static Plugin quarkusMavenPlugin(MavenProject project) {
+        for (Plugin plugin : project.getBuildPlugins()) {
+            if (QUARKUS_MAVEN_PLUGIN.equals(plugin.getArtifactId())) {
+                return plugin;
+            }
+        }
+        return null;
     }
 
     /**
