@@ -20,21 +20,68 @@ A native build does two very different things in one goal: it augments the appli
 Declaring the `build` goal twice separates them, and the extension caches the second:
 
 ```mermaid
-flowchart TD
-    subgraph pkg["mvn package"]
+---
+config:
+  look: handDrawn
+  theme: base
+  flowchart:
+    curve: basis
+    padding: 18
+    rankSpacing: 40
+    wrappingWidth: 300
+  themeVariables:
+    lineColor: '#868e96'
+    textColor: '#212529'
+    clusterBkg: 'transparent'
+    clusterBorder: '#adb5bd'
+    titleColor: '#6c757d'
+---
+flowchart LR
+    %% WL and SP1/SP2 are invisible spacers: they pad the left section so both
+    %% sections come out the same size. P1..P11 draw the dotted divider between them.
+    subgraph plain["without the extension"]
         direction TB
-        A["<b>quarkus:build</b> @quarkus-jar<br/>quarkus.native.sources-only=true<br/>augmentation only — <b>never cached</b>, ~2s"]
-        B["<b>quarkus:build</b> @quarkus-native-image<br/>runs native-image<br/><b>cached</b> — 80s on a miss, 8s on a hit"]
-        A ==>|"target/native-sources/<br/>runner jar · native-image.args · native-builder.image"| B
+        U(["<b>quarkus:build</b><br/>augmentation + native-image<br/>one execution<br/><code>NOT CACHED</code>"])
+        UO(["native-image runs<br/>on every build"])
+        URUN["target/*-runner"]
+        WL["&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"]
+        U ==> UO ==> URUN
+        URUN ~~~ SP1
+        SP1 ~~~ SP2
+        SP2 ~~~ WL
     end
-    B --> X["target/*-runner"]
 
-    classDef cheap fill:#eef6ff,stroke:#4a78b8,color:#10233b
-    classDef cached fill:#e8f6ec,stroke:#3f8f5a,color:#0e2b18
-    classDef out fill:#f4f4f4,stroke:#999,color:#222
-    class A cheap
-    class B cached
-    class X out
+    subgraph sep[" "]
+        direction TB
+        P1(" ") -.- P2(" ") -.- P3(" ") -.- P4(" ") -.- P5(" ") -.- P6(" ") -.- P7(" ") -.- P8(" ") -.- P9(" ") -.- P10(" ") -.- P11(" ")
+    end
+
+    subgraph split["with the extension"]
+        direction TB
+        A(["<b>quarkus:build</b><br/>@quarkus-jar<br/>augmentation only<br/><code>NOT CACHED</code>"])
+        H["target/native-sources/<br/>*-runner.jar + lib/<br/>native-image.args<br/>native-builder.image"]
+        B(["<b>quarkus:build</b><br/>@quarkus-native-image<br/>runs native-image<br/><code>CACHED</code>"])
+        HIT(["cache hit<br/>executable restored"])
+        MISS(["cache miss<br/>native-image runs"])
+        RUN["target/*-runner"]
+        A ==> H ==> B
+        B ==> HIT
+        B ==> MISS
+        HIT ==> RUN
+        MISS ==> RUN
+    end
+
+    plain ~~~ sep ~~~ split
+
+    classDef exec fill:#a5d8ff,stroke:#1971c2,stroke-width:2px,color:#0b2545
+    classDef artifact fill:#d0bfff,stroke:#7048e8,stroke-width:2px,color:#20124d
+    classDef outcome fill:#f1f3f5,stroke:#adb5bd,stroke-width:2px,color:#212529
+    classDef blank fill:none,stroke:none,color:transparent
+    class U,A,B exec
+    class H,RUN,URUN artifact
+    class UO,HIT,MISS outcome
+    class SP1,SP2,P1,P2,P3,P4,P5,P6,P7,P8,P9,P10,P11,WL blank
+    style sep fill:none,stroke:none
 ```
 
 The first execution is cheap and always runs. The second is the one that costs minutes, and it is keyed only on what the first wrote — not on the compile classpath — so a change that does not reach the runner jar reuses the executable.
