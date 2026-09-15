@@ -41,12 +41,6 @@ On a cache hit only the first augmentation runs. That is the whole 8s: the augme
 
 **Where it does not pay:** an application whose runner jar changes on every build. A project version derived from a commit id does exactly that — see [a version that moves every build](dynamic-version.md). Check that before concluding the cache does not work.
 
-## Reproducing it
-
-The harness is `.experiment/benchmark.sh` in the workshop checkout: for each application it runs one `build` execution, then the split against a cold cache, then the split again. Raw results in `.experiment/results/benchmark.csv`.
-
-Both layouts come from profiles on the same pom, so nothing differs between them but the number of `build` executions.
-
 [android-cache-fix-plugin]: https://github.com/gradle/android-cache-fix-gradle-plugin
 [ccud-gradle-plugin]: https://github.com/gradle/common-custom-user-data-gradle-plugin
 [ccud-maven-extension]: https://github.com/gradle/common-custom-user-data-maven-extension
