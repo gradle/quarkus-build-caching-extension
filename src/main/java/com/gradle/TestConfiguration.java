@@ -17,6 +17,12 @@ class TestConfiguration {
 
     TestConfiguration(MojoMetadataProvider.Context context, QuarkusExtensionConfiguration extensionConfiguration) {
         if (extensionConfiguration.isQuarkusCacheEnabled()) {
+            // Quarkus adds dependencies to the build dynamically, and a @QuarkusTest runs against them, so the test
+            // goals of a project whose native build is cached are keyed on them as well. Declaring the property
+            // explicitly still wins, including to turn it off.
+            addQuarkusInputs = extensionConfiguration.isAutoConfigureEnabled()
+                    && QuarkusBuildGoalMode.isSplitNativeBuild(context.getProject());
+
             Xpp3Dom properties = context.getMojoExecution().getConfiguration().getChild("properties");
             if (properties != null) {
                 Xpp3Dom addQuarkusInputsProperty = properties.getChild(TEST_GOAL_KEY_ADD_QUARKUS_INPUTS);

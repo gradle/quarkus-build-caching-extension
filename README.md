@@ -157,12 +157,11 @@ Set `DEVELOCITY_QUARKUS_AUTO_CONFIGURE=false` to turn both off and configure eve
 
 ### Quarkus Test goals
 
-When the test goals (`maven-surefire-plugin` and `maven-failsafe-plugin`) are running some `@QuarkusTest` or `@QuarkusIntegrationTest`,
-it is important for consistency to add the [dependencies Quarkus adds implicitly](#quarkus-extra-dependencies) as goal [additional input](https://docs.develocity.ai/maven/current/maven-extension/#declaring_additional_inputs).
+When the test goals (`maven-surefire-plugin` and `maven-failsafe-plugin`) run a `@QuarkusTest` or `@QuarkusIntegrationTest`, the [dependencies Quarkus adds implicitly](#quarkus-extra-dependencies) have to be goal [additional inputs](https://docs.develocity.ai/maven/current/maven-extension/#declaring_additional_inputs) for the test results to be cached consistently. For `maven-failsafe-plugin`, the Quarkus artifact descriptor `quarkus-artifact.properties` is added as well.
 
-Specifically for `maven-failsafe-plugin`, the Quarkus artifact descriptor `quarkus-artifact.properties` also needs to be added. 
+On a project declaring the [split layout](#the-quarkus-maven-plugin-configuration) the extension does this by itself, on the same grounds as the rest of [what it sets up](#what-the-extension-sets-up-for-you): a project whose native build is cached runs Quarkus tests against those dependencies.
 
-This is achieved by declaring a property `addQuarkusInputs` on the test goal:
+Declare the property yourself to override it, in particular to turn it off on a module whose tests do not use Quarkus and would only be keyed more widely for nothing:
 
 ```xml
 <plugins>
@@ -184,6 +183,8 @@ This is achieved by declaring a property `addQuarkusInputs` on the test goal:
     </plugin>
 </plugins>
 ```
+
+Outside a split native build nothing is added unless the property asks for it.
 
 #### Quarkus extra dependencies
 

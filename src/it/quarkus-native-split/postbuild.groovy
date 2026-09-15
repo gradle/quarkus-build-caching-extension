@@ -16,6 +16,8 @@ void assertAugmentationExecuted(String log) {
 
 void assertAutoConfigured(String logFile) {
     String log = getContent(logFile)
+    // the test goals are keyed on the dependencies Quarkus adds dynamically, without asking for it
+    assert log.contains('TestConfiguration{addQuarkusInputs=true')
     assert log.contains('[quarkus-build-caching-extension] Enabled quarkus.config-tracking.enabled on quarkus-test-native-split')
     assert log.contains('[quarkus-build-caching-extension] Registered the track-config-changes goal on quarkus-test-native-split')
     // the goal the extension registered really is bound and runs

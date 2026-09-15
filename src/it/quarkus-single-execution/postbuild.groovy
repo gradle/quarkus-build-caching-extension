@@ -13,6 +13,8 @@ void assertNotCacheable(String logFile) {
     assert log.contains('[quarkus-build-caching-extension] Quarkus build goal marked as not cacheable, declare it as a split native build to make the native image generation cacheable')
     // never cached means the augmentation runs every time
     assert log.contains('Quarkus augmentation completed')
+    // not a split native build, so the test goals are left alone too
+    assert log.contains('TestConfiguration{addQuarkusInputs=false')
 }
 
 assertNotCacheable('01-single-execution.log')
