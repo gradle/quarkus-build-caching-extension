@@ -241,6 +241,23 @@ The test goal inputs can also be overridden per module with the `addQuarkusInput
 </properties>
 ```
 
+#### Ordering the native-image configuration
+
+Quarkus writes `META-INF/native-image/*.json` into the runner jar from unordered collections, so two builds of untouched sources produce the same registrations in a different order. Since that jar is the cache key, each ordering would be a separate cache entry.
+
+The extension orders those files after the augmentation and before the native image generation is keyed on them:
+
+```
+[INFO] [quarkus-build-caching-extension] Ordered the native-image configuration of my-app-1.0-runner.jar: serialization-config.json, reflect-config.json, resource-config.json
+```
+
+Only `target/native-sources` is touched, which the native image generation does not consume — it re-runs the augmentation and builds its own jar — so this cannot change the executable that is produced. Ordering is sound where ignoring those files would not be: a registration added or removed still changes the key, only the order it came out in is discarded. A file that cannot be parsed is left exactly as Quarkus wrote it.
+
+To turn it off:
+```properties
+DEVELOCITY_QUARKUS_NORMALIZE_NATIVE_IMAGE_CONFIG=false
+```
+
 #### Lifting the in-container requirement
 
 The default is to enable caching only when the in-container build strategy is used.
@@ -266,6 +283,7 @@ The same configuration can be achieved with Maven properties:
 <properties>
     <develocity.quarkus.cache.enabled>true</develocity.quarkus.cache.enabled>
     <develocity.quarkus.auto.configure>true</develocity.quarkus.auto.configure>
+    <develocity.quarkus.normalize.native.image.config>true</develocity.quarkus.normalize.native.image.config>
     <develocity.quarkus.build.profile>prod</develocity.quarkus.build.profile>
     <develocity.quarkus.dump.config.prefix>quarkus</develocity.quarkus.dump.config.prefix>
     <develocity.quarkus.dump.config.suffix>config-dump-ci</develocity.quarkus.dump.config.suffix>
@@ -403,7 +421,14 @@ The duplicated augmentation costs 1.96s, and the split's second augmentation run
 
 The two bold rows are the point of the split: a change on the build classpath that does not reach the runner jar costs 8s instead of 83s. With a single execution both would re-run `native-image`, since the compile classpath is part of its key.
 
-Expect that benefit to be partial rather than absolute, for one reason: **the augmentation is not byte-reproducible**. On Quarkus 3.39.3 two identical builds still emit `META-INF/native-image/reflect-config.json` and `resource-config.json` with a couple of entries in a different order — same entries, same contents. Each ordering is a separate cache key, so an unchanged source tree settles only after each variant has been seen once. Measured from a cold cache, 3 of 8 identical builds re-ran `native-image`; a single execution, keyed on the classpath, missed once out of 8.
+One thing would otherwise make that benefit partial: **the augmentation is not byte-reproducible**. On Quarkus 3.39.3 two identical builds emit the `META-INF/native-image/*.json` configuration with entries in a different order — same entries, same contents. Left alone, each ordering is a separate cache key and an unchanged source tree settles only after every variant has been seen: measured from a cold cache, 3 of 8 identical builds re-ran `native-image`, and on a larger application 4 in a row.
+
+The extension [orders those files](#ordering-the-native-image-configuration) before the jar is used as a key, which removes it. On the same application, from a cold cache:
+
+| | misses out of 8 identical builds |
+|---|---|
+| without the ordering | 4 |
+| with the ordering | **1**, the cold-cache fill |
 
 ### The cost of large cache entries
 
@@ -420,7 +445,7 @@ So a cache hit saves ~73s of `native-image` in exchange for transferring ~29 MB.
 - Absolute paths appearing in `native-image.args`, which `quarkus.native.agent-configuration-directory` and PGO profiles introduce, make the key machine-specific.
 - **Run the two executions together.** The native image generation is keyed on whatever `target/native-sources` holds, so invoking it alone (`mvn quarkus:build@quarkus-native-image` without the augmentation, on a dirty `target`) keys it on a previous build's jar and can restore a stale executable. Always let the `package` phase run both.
 - **`-Dquarkus.native.sources-only=true` on the command line applies to both executions**, which leaves the build without a native executable. The property belongs in the first execution's `systemProperties`, nowhere else.
-- **The cache key is only as reproducible as the augmentation.** On Quarkus 3.39.3 two identical builds still emit `META-INF/native-image/reflect-config.json` and `resource-config.json` with a couple of entries in a different order — same entries, same contents. Each ordering is a separate cache key, so an unchanged source tree can need a few `native-image` runs before it settles; measured on the workshop application, 3 of 8 identical builds from a cold cache. Sorting those two files upstream would remove it.
+- **The native executable itself is not reproducible.** [Ordering the generated configuration](#ordering-the-native-image-configuration) stabilizes the cache key, not what Quarkus and `native-image` produce: two builds of the same sources still yield executables that differ in size. A cache hit therefore hands back one of several equivalent builds, which is what any cache does, but it is worth knowing before comparing checksums across machines.
 - **Parallel builds.** The `build` goal applies its `systemProperties` to the JVM running Maven, so `-T` carries the race [the goal already warns about](https://github.com/quarkusio/quarkus/blob/main/devtools/maven/src/main/java/io/quarkus/maven/BuildMojo.java) across modules of a multi-module build.
 
 # Implementation details

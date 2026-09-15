@@ -17,9 +17,9 @@
         </component>
         <component>
             <role>org.apache.maven.execution.MojoExecutionListener</role>
-            <role-hint>quarkus-build-caching-artifact-descriptor-restorer</role-hint>
-            <implementation>com.gradle.QuarkusArtifactDescriptorRestorer</implementation>
-            <description>Restores the Quarkus artifact descriptor after a cache hit</description>
+            <role-hint>quarkus-build-caching-mojo-execution-listener</role-hint>
+            <implementation>com.gradle.QuarkusBuildCachingMojoExecutionListener</implementation>
+            <description>Orders the native-image configuration and restores the Quarkus artifact descriptor</description>
             <isolated-realm>false</isolated-realm>
         </component>
     </components>

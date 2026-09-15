@@ -13,8 +13,14 @@ import java.nio.file.Files;
 import java.util.Properties;
 
 /**
- * Puts {@code target/quarkus-artifact.properties} back to describing the native executable after the native image
- * generation was restored from the cache.
+ * Acts on the two {@code build} executions of a split native build, in the window Maven leaves between one execution
+ * finishing and the next being fingerprinted.
+ *
+ * <p>After the augmentation, it orders the {@code native-image} configuration inside the jar the next execution is
+ * keyed on, see {@link NativeImageConfigNormalizer}.
+ *
+ * <p>After the native image generation, it puts {@code target/quarkus-artifact.properties} back to describing the
+ * native executable.
  *
  * <p>Quarkus writes that descriptor at the end of every augmentation, so the augmentation-only execution leaves it
  * saying {@code type=native-sources} and pointing at the source jar. Only the native image generation corrects it, and
@@ -26,9 +32,9 @@ import java.util.Properties;
  * describing the executable is left alone, so the {@code metadata.graalvm.version.*} entries a real native build
  * records survive a cache miss.
  */
-public final class QuarkusArtifactDescriptorRestorer implements MojoExecutionListener {
+public final class QuarkusBuildCachingMojoExecutionListener implements MojoExecutionListener {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(QuarkusArtifactDescriptorRestorer.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(QuarkusBuildCachingMojoExecutionListener.class);
 
     private static final String BUILD_GOAL = "build";
     private static final String NATIVE_ARTIFACT_TYPE = "native";
@@ -49,7 +55,15 @@ public final class QuarkusArtifactDescriptorRestorer implements MojoExecutionLis
         if (!extensionConfiguration.isQuarkusCacheEnabled() || !extensionConfiguration.isAutoConfigureEnabled()) {
             return;
         }
-        if (QuarkusBuildGoalMode.of(event.getExecution(), project) != QuarkusBuildGoalMode.NATIVE_IMAGE) {
+        QuarkusBuildGoalMode mode = QuarkusBuildGoalMode.of(event.getExecution(), project);
+        if (mode == QuarkusBuildGoalMode.NATIVE_SOURCES) {
+            // the next execution is keyed on what this one just wrote, so order it before that happens
+            if (extensionConfiguration.isNativeImageConfigNormalizationEnabled()) {
+                NativeImageConfigNormalizer.normalize(new File(project.getBasedir(), QuarkusBuildGoalMode.NATIVE_SOURCES_DIR));
+            }
+            return;
+        }
+        if (mode != QuarkusBuildGoalMode.NATIVE_IMAGE) {
             return;
         }
 

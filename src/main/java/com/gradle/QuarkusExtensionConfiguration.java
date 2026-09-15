@@ -43,6 +43,9 @@ final class QuarkusExtensionConfiguration {
     // Automatic configuration of the Quarkus goals the caching relies on
     private static final String DEVELOCITY_QUARKUS_KEY_AUTO_CONFIGURE = "DEVELOCITY_QUARKUS_AUTO_CONFIGURE";
 
+    // Ordering of the native-image configuration Quarkus generates
+    private static final String DEVELOCITY_QUARKUS_KEY_NORMALIZE_NATIVE_IMAGE_CONFIG = "DEVELOCITY_QUARKUS_NORMALIZE_NATIVE_IMAGE_CONFIG";
+
     // Native build in container required key
     private static final String DEVELOCITY_QUARKUS_KEY_NATIVE_BUILD_IN_CONTAINER_REQUIRED = "DEVELOCITY_QUARKUS_NATIVE_BUILD_IN_CONTAINER_REQUIRED";
 
@@ -73,6 +76,7 @@ final class QuarkusExtensionConfiguration {
         configuration.setProperty(DEVELOCITY_QUARKUS_KEY_EXTRA_OUTPUT_FILES, "");
         configuration.setProperty(DEVELOCITY_QUARKUS_KEY_NATIVE_BUILD_IN_CONTAINER_REQUIRED, Boolean.TRUE.toString());
         configuration.setProperty(DEVELOCITY_QUARKUS_KEY_AUTO_CONFIGURE, Boolean.TRUE.toString());
+        configuration.setProperty(DEVELOCITY_QUARKUS_KEY_NORMALIZE_NATIVE_IMAGE_CONFIG, Boolean.TRUE.toString());
     }
 
     private void overrideFromEnvironment() {
@@ -123,6 +127,13 @@ final class QuarkusExtensionConfiguration {
      */
     boolean isAutoConfigureEnabled() {
         return !Boolean.FALSE.toString().equals(configuration.get(DEVELOCITY_QUARKUS_KEY_AUTO_CONFIGURE));
+    }
+
+    /**
+     * @return whether the native-image configuration Quarkus generates is ordered before it is used as a cache key
+     */
+    boolean isNativeImageConfigNormalizationEnabled() {
+        return !Boolean.FALSE.toString().equals(configuration.get(DEVELOCITY_QUARKUS_KEY_NORMALIZE_NATIVE_IMAGE_CONFIG));
     }
 
     /**

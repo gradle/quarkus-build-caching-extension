@@ -16,6 +16,8 @@ void assertAugmentationExecuted(String log) {
 
 void assertAutoConfigured(String logFile) {
     String log = getContent(logFile)
+    // the native-image configuration is ordered before the next execution is keyed on the jar
+    assert log.contains('[quarkus-build-caching-extension] Ordered the native-image configuration of')
     // the test goals are keyed on the dependencies Quarkus adds dynamically, without asking for it
     assert log.contains('TestConfiguration{addQuarkusInputs=true')
     assert log.contains('[quarkus-build-caching-extension] Enabled quarkus.config-tracking.enabled on quarkus-test-native-split')
@@ -143,6 +145,11 @@ String explicit = getContent('12-split-native-build-explicit-config-tracking.log
 assert explicit =~ /track-config-changes \(my-own-config-tracking\)/
 assert !explicit.contains('[quarkus-build-caching-extension] Registered the track-config-changes goal')
 assert !explicit.contains('[quarkus-build-caching-extension] Enabled quarkus.config-tracking.enabled')
+
+// The ordering can be turned off
+println('Verifying the native-image configuration ordering can be disabled...')
+assert !getContent('13-split-native-build-no-json-ordering.log')
+        .contains('[quarkus-build-caching-extension] Ordered the native-image configuration of')
 
 // Whether restored or rebuilt, the executable has to be there at the end
 assertNativeExecutableExists()
