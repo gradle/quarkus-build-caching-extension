@@ -167,6 +167,18 @@ All six applications of the [Quarkus super-heroes workshop](https://quarkus.io/q
 
 Splitting costs nothing on a cold cache — the second augmentation adds about 2s to an 80s build — and a cache hit skips `native-image` entirely. Per application that is 70–100s down to 8s.
 
+The key is the runner jar, the `native-image` arguments, the builder image and the Quarkus configuration the augmentation recorded. Anything that does not reach those reuses the executable:
+
+| | |
+|---|---|
+| A module nothing touched, in a repository of several applications | **hit** — a change usually lands in one of them, and the rest are restored |
+| A `provided` or `test` dependency added or upgraded | **hit** — it changes the compile classpath, not the runtime closure the native image is built from |
+| A test-only change | **hit** — test classes are in neither the runner jar nor `lib/` |
+| The same commit built on another machine, or in another pipeline | **hit** — the in-container builder image pins the toolchain, so entries are shared |
+| A project version carrying a commit id | **hit**, with [the two properties above](#a-version-that-moves-every-build) — a **miss** every single build without them |
+| A change to application code, or to a runtime dependency | **miss** — it reaches the runner jar |
+| A Quarkus build-time configuration change | **miss** — the augmentation records it, and it is part of the key |
+
 It pays most on CI, where the main branch populates a remote cache that pull requests and developer machines read from. See the [benchmark](doc/benchmark.md) for the per-application numbers and where to apply it.
 
 ## Things to weigh
