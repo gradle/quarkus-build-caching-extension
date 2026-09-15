@@ -157,10 +157,10 @@ It pays most on CI, where the main branch populates a remote cache that pull req
 ## Things to weigh
 
 > [!WARNING]
-> **A native executable is a very large cache entry.** These are 40–90MB each. Copying one in and out of the local cache, and transferring it to and from a remote cache, is itself work — it has to be balanced against the duration of the `native-image` run it avoids, and against the storage the cache node has to carry.
+> **A native executable is a very large cache entry.** Copying one in and out of the local cache, and transferring it to and from a remote cache, is itself work — it has to be balanced against the duration of the `native-image` run it avoids, and against the storage the cache node has to carry.
 
 > [!WARNING]
-> **Do not expect a high hit rate.** Most code changes reach the runner jar and so change the cache key. A hit is still worth having: it turns 70–100s into 8s, and the split costs about 2s when it misses. That asymmetry is what makes a low hit rate pay — but only as long as the entries earning those hits are worth the space they occupy.
+> **Do not expect a high hit rate.** Most code changes reach the runner jar and so change the cache key. A hit is still worth having: it skips the `native-image` run entirely, while the split adds only a short second augmentation when it misses. That asymmetry is what makes a low hit rate pay — but only as long as the entries earning those hits are worth the space they occupy.
 
 ## Going further
 
