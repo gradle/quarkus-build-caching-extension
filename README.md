@@ -141,6 +141,21 @@ Then declare the `build` goal twice, the first one stopping at the augmentation:
 
 That is all. The extension recognizes the layout on its own and sets up the rest: Quarkus config tracking, the artifact descriptor after a cache hit, and the test goal inputs. See [what it sets up for you](doc/how-it-works.md#what-the-extension-sets-up-for-you).
 
+## A version that moves every build
+
+A common one. A project version carrying a commit id gives every commit a different cache key, so `native-image` runs every time even when nothing the application is built from has changed. Two properties:
+
+```xml
+<properties>
+    <develocity.quarkus.version.independent.build>true</develocity.quarkus.version.independent.build>
+    <quarkus.application.version>stable</quarkus.application.version>
+</properties>
+```
+
+The first keeps the version out of the name the jar is built under and out of the jar's `META-INF/maven/**`, then links the executable back to the name the rest of the build expects. The second you have to set yourself: it defaults to the project version and is compiled into the application, so the extension cannot normalize it away — it only warns.
+
+See [a version that moves every build](doc/dynamic-version.md) for what moves, and for the knock-on effect on `quarkus.container-image.tag`.
+
 ## What to expect
 
 All six applications of the [Quarkus super-heroes workshop](https://quarkus.io/quarkus-workshops/super-heroes/), built natively, rebuilt with nothing changed:
