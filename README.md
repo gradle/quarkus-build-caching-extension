@@ -173,7 +173,7 @@ The key is the runner jar, the `native-image` arguments, the builder image and t
 
 | | |
 |---|---|
-| An application whose sources and dependencies have not changed | **hit** — in a repository holding several applications, a commit usually touches one of them and the others are restored |
+| An application whose sources and dependencies have not changed | **hit** — not every file in a repository is source code: documentation, CI configuration, scripts and the like reach nothing the native image is built from |
 | A `provided` or `test` dependency added or upgraded | **hit** — it changes the compile classpath, not the runtime closure the native image is built from |
 | A test-only change | **hit** — test classes are in neither the runner jar nor `lib/` |
 | The same commit built on another machine, or in another pipeline | **hit** — the in-container builder image pins the toolchain, so entries are shared |
