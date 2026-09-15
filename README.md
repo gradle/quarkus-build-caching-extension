@@ -106,7 +106,7 @@ Two steps. Declare the extension in `.mvn/extensions.xml`:
     <extension>
         <groupId>com.gradle</groupId>
         <artifactId>quarkus-build-caching-extension</artifactId>
-        <version>1.12</version>
+        <version>2.0</version>
     </extension>
 </extensions>
 ```
