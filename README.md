@@ -167,6 +167,8 @@ All six applications of the [Quarkus super-heroes workshop](https://quarkus.io/q
 
 Splitting costs nothing on a cold cache — the second augmentation adds about 2s to an 80s build — and a cache hit skips `native-image` entirely. Per application that is 70–100s down to 8s.
 
+### Cache hits and misses
+
 The key is the runner jar, the `native-image` arguments, the builder image and the Quarkus configuration the augmentation recorded. Anything that does not reach those reuses the executable:
 
 | | |
