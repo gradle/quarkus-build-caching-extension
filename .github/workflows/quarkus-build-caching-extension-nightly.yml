@@ -55,7 +55,7 @@ jobs:
           distribution: 'mandrel'
       - name: Build with Maven
         run: |
-          ./mvnw --batch-mode clean package integration-test -Dinvoker.test=quarkus-native-local-toolchain
+          ./mvnw --batch-mode clean package integration-test -Dinvoker.test=quarkus-3.39.3
         env:
           DEVELOCITY_ACCESS_KEY: ${{ secrets.DV_SOLUTIONS_ACCESS_KEY }}
       - name: Upload integration tests reports (on failure only)
