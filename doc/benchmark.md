@@ -37,8 +37,6 @@ On a cache hit only the first augmentation runs. That is the whole 8s: the augme
 
 **CI, on the main branch: yes, and this is where it pays.** The main branch builds the same commit every other pipeline touches, and it is what populates the cache for everyone else. A remote cache turns the 507s above into 52s for any build whose applications have not changed, and into a per-application saving when only some have.
 
-**CI, on pull requests: yes.** A pull request usually touches one or two applications; the rest are restored. This is where the narrow key earns its keep — a dependency bump that does not reach the runner jar costs nothing, where one `build` execution would rebuild every native image.
-
 **Locally: yes, with a remote cache.** A developer building natively pays 70–100s per application. Reading from the same remote cache CI populates makes that 8s for everything they have not touched. Without a remote cache the local cache only helps on a rebuild of something already built on that machine, which is still the common case when iterating.
 
 **Where it does not pay:** an application whose runner jar changes on every build. A project version derived from a commit id does exactly that — see [a version that moves every build](dynamic-version.md). Check that before concluding the cache does not work.
