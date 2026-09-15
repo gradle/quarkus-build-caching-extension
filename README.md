@@ -158,12 +158,12 @@ See [a version that moves every build](doc/dynamic-version.md) for what moves, a
 
 ## What to expect
 
-All six applications of the [Quarkus super-heroes workshop](https://quarkus.io/quarkus-workshops/super-heroes/), built natively, rebuilt with nothing changed:
+All six applications of the [Quarkus super-heroes workshop](https://quarkus.io/quarkus-workshops/super-heroes/), built natively:
 
 | | one `build` execution | split |
 |---|---|---|
-| whole repository, nothing changed | 507s | **52s** |
 | whole repository, cold cache | 507s | 459s |
+| whole repository, nothing changed | 507s | **52s** |
 
 Splitting costs nothing on a cold cache — the second augmentation adds about 2s to an 80s build — and a cache hit skips `native-image` entirely. Per application that is 70–100s down to 8s.
 
