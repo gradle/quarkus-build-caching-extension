@@ -14,7 +14,7 @@ public final class QuarkusBuildCachingUtil {
     private static final Logger LOGGER = LoggerFactory.getLogger(QuarkusBuildCaching.class);
     private static final String LOG_PREFIX = "[quarkus-build-caching-extension] ";
 
-    public static Properties loadProperties(String baseDir, String propertyFile) {
+    static Properties loadProperties(String baseDir, String propertyFile) {
         Properties props = new Properties();
         File configFile = new File(baseDir, propertyFile);
 

@@ -2,10 +2,8 @@
 
 Every switch the extension has. Back to the [README](../README.md).
 
-Configuration can be set with (listed in order of precedence ):
-- [Environment variables](#environment-variables)
-- [Maven properties](#maven-properties)
-- [Configuration file](#configuration-file)
+Configuration can be set as an [environment variable](#environment-variables) or as a
+[Maven property](#maven-properties), the Maven property winning when both are given.
 
 ## Environment variables
 
@@ -91,16 +89,6 @@ Any of them can also be passed on the command line, which takes precedence over 
 ```shell
 mvn clean package -Ddevelocity.quarkus.cache.enabled=false
 ```
-
-## Configuration file
-
-A configuration file can be used instead by defining its location (relative to the project root folder) either:
-- as an environment variable:
-`DEVELOCITY_QUARKUS_CONFIG_FILE=.quarkus/develocity-ci.properties`
-- as a maven property:
-`<develocity.quarkus.config.file>.quarkus/extension-local.properties</develocity.quarkus.config.file>`
-
-Its content can be created like described in the [environment variables](#environment-variables) section.
 
 ## Ignoring properties in the configuration dump
 

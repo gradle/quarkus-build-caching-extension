@@ -1,6 +1,5 @@
 package com.gradle.quarkus.extension.configuration;
 
-import com.gradle.quarkus.extension.QuarkusBuildCachingUtil;
 import org.apache.maven.project.MavenProject;
 
 import java.util.Properties;
@@ -9,9 +8,6 @@ public final class QuarkusBuildCachingConfiguration {
 
     // Disable caching flag key
     private static final String DEVELOCITY_QUARKUS_KEY_CACHE_ENABLED = "DEVELOCITY_QUARKUS_CACHE_ENABLED";
-
-    // Configuration file location key
-    private static final String DEVELOCITY_QUARKUS_KEY_CONFIG_FILE = "DEVELOCITY_QUARKUS_CONFIG_FILE";
 
     // Automatic configuration of the Quarkus goals the caching relies on
     private static final String DEVELOCITY_QUARKUS_KEY_AUTO_CONFIGURE = "DEVELOCITY_QUARKUS_AUTO_CONFIGURE";
@@ -36,14 +32,10 @@ public final class QuarkusBuildCachingConfiguration {
 
         // override from Maven properties
         overrideFromMaven(project);
-
-        // override from configuration file
-        overrideFromConfigurationFile(project);
     }
 
     private void initWithDefault() {
         configuration.setProperty(DEVELOCITY_QUARKUS_KEY_CACHE_ENABLED, Boolean.TRUE.toString());
-        configuration.setProperty(DEVELOCITY_QUARKUS_KEY_CONFIG_FILE, "");
         configuration.setProperty(DEVELOCITY_QUARKUS_KEY_NATIVE_BUILD_IN_CONTAINER_REQUIRED, Boolean.TRUE.toString());
         configuration.setProperty(DEVELOCITY_QUARKUS_KEY_AUTO_CONFIGURE, Boolean.TRUE.toString());
         configuration.setProperty(DEVELOCITY_QUARKUS_KEY_NORMALIZE_NATIVE_IMAGE_CONFIG, Boolean.TRUE.toString());
@@ -77,13 +69,6 @@ public final class QuarkusBuildCachingConfiguration {
                 configuration.setProperty(key, value);
             }
         });
-    }
-
-    private void overrideFromConfigurationFile(MavenProject project) {
-        String configurationFile = configuration.getProperty(DEVELOCITY_QUARKUS_KEY_CONFIG_FILE);
-        if(!configurationFile.isEmpty()) {
-            configuration.putAll(QuarkusBuildCachingUtil.loadProperties(project.getBasedir().getAbsolutePath(), configurationFile));
-        }
     }
 
     /**
