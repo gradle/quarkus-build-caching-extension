@@ -90,7 +90,7 @@ The first execution is cheap and always runs. The second is the one that costs m
 
 - **Quarkus 3.39.3 or above.** Below it the augmentation output is not stable enough for the cache to ever hit — see [scope and requirements](doc/scope.md).
 - `com.gradle:develocity-maven-extension`
-- An in-container native build by default, which pins the toolchain and makes entries shareable between machines.
+- An in-container native build by default, which pins the toolchain and makes entries shareable between machines. The requirement can be lifted when every environment sharing the cache has identical system inputs — see [lifting the in-container requirement](doc/configuration.md#lifting-the-in-container-requirement).
 
 ## Setup
 
