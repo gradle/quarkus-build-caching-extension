@@ -14,22 +14,23 @@ on:
 jobs:
   # The augmentation output is the cache key, so a Quarkus change that makes it less reproducible
   # stops the native image ever being reused. This is what catches that before a release does.
+  # Mandrel rather than a plain JDK: the in-host project builds the native image on the runner.
   quarkus-snapshot:
     name: Quarkus snapshot
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - name: Set up JDK 21
+      - name: Set up Mandrel 21
         uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6
         with:
           java-version: '21'
-          distribution: 'temurin'
+          distribution: 'mandrel'
       - name: Install Quarkus snapshots
         uses: quarkusio/install-quarkus-snapshots-action@de83c2a9a1528f92fa835160b1239c5bdb680ded # main
       - name: Build with Maven
         run: |
-          ./mvnw --batch-mode clean package integration-test -Dinvoker.test=quarkus-latest
+          ./mvnw --batch-mode clean package integration-test -Dinvoker.test=quarkus-latest-in-container,quarkus-latest-in-host
         env:
           DEVELOCITY_ACCESS_KEY: ${{ secrets.DV_SOLUTIONS_ACCESS_KEY }}
       - name: Upload integration tests reports (on failure only)

@@ -102,12 +102,13 @@
                     <cloneProjectsTo>${project.build.directory}/it</cloneProjectsTo>
                     <invokerPropertiesFile>invoker.properties</invokerPropertiesFile>
                     <streamLogs>true</streamLogs>
-                    <!-- Neither runs on a stock machine: quarkus-latest builds against
-                         io.quarkus:*:999-SNAPSHOT, and quarkus-3.39.3-in-host needs a local
+                    <!-- None of these runs on a stock machine: the quarkus-latest-* projects build
+                         against io.quarkus:*:999-SNAPSHOT, and the *-in-host ones need a local
                          native-image. The nightly workflow installs what they need and selects them
                          with -Dinvoker.test. -->
                     <pomExcludes>
-                        <pomExclude>quarkus-latest/pom.xml</pomExclude>
+                        <pomExclude>quarkus-latest-in-container/pom.xml</pomExclude>
+                        <pomExclude>quarkus-latest-in-host/pom.xml</pomExclude>
                         <pomExclude>quarkus-3.39.3-in-host/pom.xml</pomExclude>
                     </pomExcludes>
                     <filterProperties>
