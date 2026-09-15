@@ -1,5 +1,6 @@
-package com.gradle;
+package com.gradle.quarkus.extension.normalization;
 
+import com.gradle.quarkus.extension.QuarkusBuildCachingUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,7 +36,7 @@ import java.util.zip.ZipOutputStream;
  * <p>Only {@code target/native-sources} is touched, which the second execution does not consume — it re-runs the
  * augmentation and builds its own jar — so this cannot change the executable that is produced.
  */
-final class NativeImageConfigNormalizer {
+public final class NativeImageConfigNormalizer {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(NativeImageConfigNormalizer.class);
 
@@ -49,7 +50,7 @@ final class NativeImageConfigNormalizer {
     /**
      * Rewrites every jar of {@code nativeSourcesDir} whose {@code native-image} configuration is not already ordered.
      */
-    static void normalize(File nativeSourcesDir) {
+    public static void normalize(File nativeSourcesDir) {
         normalize(nativeSourcesDir, false);
     }
 
@@ -57,7 +58,7 @@ final class NativeImageConfigNormalizer {
      * @param dropMavenDescriptor also removes {@code META-INF/maven/**}, which carries the project version and reaches
      *                            nothing the native image is built from
      */
-    static void normalize(File nativeSourcesDir, boolean dropMavenDescriptor) {
+    public static void normalize(File nativeSourcesDir, boolean dropMavenDescriptor) {
         File[] jars = nativeSourcesDir.listFiles((dir, name) -> name.endsWith(".jar"));
         if (jars == null) {
             return;
@@ -66,12 +67,12 @@ final class NativeImageConfigNormalizer {
             try {
                 List<String> normalized = normalizeJar(jar, dropMavenDescriptor);
                 if (!normalized.isEmpty()) {
-                    LOGGER.info(QuarkusExtensionUtil.getLogMessage("Ordered the native-image configuration of " + jar.getName() + ": " + String.join(", ", normalized)));
+                    LOGGER.info(QuarkusBuildCachingUtil.getLogMessage("Ordered the native-image configuration of " + jar.getName() + ": " + String.join(", ", normalized)));
                 }
             } catch (Exception e) {
                 // the key is then as unstable as Quarkus left it, which is worse than this having worked but is not a
                 // reason to fail the build
-                LOGGER.warn(QuarkusExtensionUtil.getLogMessage("Unable to order the native-image configuration of " + jar + ", the native image cache key may move between builds"), e);
+                LOGGER.warn(QuarkusBuildCachingUtil.getLogMessage("Unable to order the native-image configuration of " + jar + ", the native image cache key may move between builds"), e);
             }
         }
     }
@@ -143,7 +144,7 @@ final class NativeImageConfigNormalizer {
             String ordered = Json.canonical(Json.parse(new String(content, StandardCharsets.UTF_8)));
             return ordered.getBytes(StandardCharsets.UTF_8);
         } catch (RuntimeException e) {
-            LOGGER.debug(QuarkusExtensionUtil.getLogMessage("Leaving " + entryName + " as it is: " + e.getMessage()));
+            LOGGER.debug(QuarkusBuildCachingUtil.getLogMessage("Leaving " + entryName + " as it is: " + e.getMessage()));
             return null;
         }
     }

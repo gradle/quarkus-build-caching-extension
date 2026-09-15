@@ -1,4 +1,4 @@
-package com.gradle;
+package com.gradle.quarkus.extension;
 
 import org.apache.maven.model.Plugin;
 import org.apache.maven.model.PluginExecution;
@@ -18,7 +18,7 @@ import java.util.List;
  * ({@code quarkus.native.sources-only=true}), the second one turns the resulting jar into a native executable. Any
  * other layout, a lone {@code build} execution in particular, is left uncached.
  */
-enum QuarkusBuildGoalMode {
+public enum QuarkusBuildGoalMode {
 
     /**
      * Any {@code build} execution that is not part of a split native build. Not cacheable.
@@ -76,7 +76,7 @@ enum QuarkusBuildGoalMode {
     /**
      * @return whether the project declares the two {@code build} executions of a split native build
      */
-    static boolean isSplitNativeBuild(MavenProject project) {
+    public static boolean isSplitNativeBuild(MavenProject project) {
         return nativeSourcesExecutionId(project) != null;
     }
 

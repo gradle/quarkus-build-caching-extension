@@ -1,9 +1,10 @@
-package com.gradle;
+package com.gradle.quarkus.extension.configuration;
 
 import com.gradle.develocity.agent.maven.api.cache.MojoMetadataProvider;
+import com.gradle.quarkus.extension.QuarkusBuildGoalMode;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
 
-class TestConfiguration {
+public class TestConfiguration {
 
     private static final String TEST_GOAL_KEY_ADD_QUARKUS_INPUTS = "addQuarkusInputs";
     private static final String TEST_GOAL_KEY_ADD_QUARKUS_PACKAGE_INPUTS = "addQuarkusPackageInputs";
@@ -15,7 +16,7 @@ class TestConfiguration {
     private boolean addQuarkusPackageInputs;
     private String quarkusPackagePattern;
 
-    TestConfiguration(MojoMetadataProvider.Context context, QuarkusExtensionConfiguration extensionConfiguration) {
+    public TestConfiguration(MojoMetadataProvider.Context context, QuarkusBuildCachingConfiguration extensionConfiguration) {
         if (extensionConfiguration.isQuarkusCacheEnabled()) {
             // Quarkus adds dependencies to the build dynamically, and a @QuarkusTest runs against them, so the test
             // goals of a project whose native build is cached are keyed on them as well. Declaring the property
@@ -41,19 +42,19 @@ class TestConfiguration {
         }
     }
 
-    boolean isAddQuarkusInputs() {
+    public boolean isAddQuarkusInputs() {
         return addQuarkusInputs;
     }
 
-    boolean isAddQuarkusPackageInputs() {
+    public boolean isAddQuarkusPackageInputs() {
         return addQuarkusPackageInputs;
     }
 
-    String getQuarkusJarFilePattern() {
+    public String getQuarkusJarFilePattern() {
         return quarkusPackagePattern != null ? quarkusPackagePattern : TEST_GOAL_DEFAULT_QUARKUS_PACKAGE_JAR_PATTERN;
     }
 
-    String getQuarkusExeFilePattern() {
+    public String getQuarkusExeFilePattern() {
         return quarkusPackagePattern != null ? quarkusPackagePattern : TEST_GOAL_DEFAULT_QUARKUS_PACKAGE_EXE_PATTERN;
     }
 

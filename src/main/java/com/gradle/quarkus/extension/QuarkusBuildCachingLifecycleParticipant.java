@@ -1,5 +1,6 @@
-package com.gradle;
+package com.gradle.quarkus.extension;
 
+import com.gradle.quarkus.extension.configuration.QuarkusBuildCachingConfiguration;
 import org.apache.maven.AbstractMavenLifecycleParticipant;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.model.Plugin;
@@ -35,7 +36,7 @@ public final class QuarkusBuildCachingLifecycleParticipant extends AbstractMaven
     @Override
     public void afterProjectsRead(MavenSession session) {
         for (MavenProject project : session.getProjects()) {
-            QuarkusExtensionConfiguration extensionConfiguration = new QuarkusExtensionConfiguration(project);
+            QuarkusBuildCachingConfiguration extensionConfiguration = new QuarkusBuildCachingConfiguration(project);
             if (!extensionConfiguration.isQuarkusCacheEnabled() || !extensionConfiguration.isAutoConfigureEnabled()) {
                 continue;
             }
@@ -67,12 +68,12 @@ public final class QuarkusBuildCachingLifecycleParticipant extends AbstractMaven
             return;
         }
         project.getBuild().setFinalName(project.getArtifactId());
-        LOGGER.info(QuarkusExtensionUtil.getLogMessage("Building as '" + project.getArtifactId() + "' rather than '" + finalName
+        LOGGER.info(QuarkusBuildCachingUtil.getLogMessage("Building as '" + project.getArtifactId() + "' rather than '" + finalName
                 + "', so that the version stays out of the native image cache key"));
 
         if (project.getProperties().getProperty(QUARKUS_APPLICATION_VERSION_PROPERTY) == null
                 && System.getProperty(QUARKUS_APPLICATION_VERSION_PROPERTY) == null) {
-            LOGGER.warn(QuarkusExtensionUtil.getLogMessage(QUARKUS_APPLICATION_VERSION_PROPERTY + " is not set, so it defaults to the project version and is compiled into the application: the native image cache key will still change on every version. Set it to a value that does not move."));
+            LOGGER.warn(QuarkusBuildCachingUtil.getLogMessage(QUARKUS_APPLICATION_VERSION_PROPERTY + " is not set, so it defaults to the project version and is compiled into the application: the native image cache key will still change on every version. Set it to a value that does not move."));
         }
     }
 
@@ -83,7 +84,7 @@ public final class QuarkusBuildCachingLifecycleParticipant extends AbstractMaven
             return;
         }
         project.getProperties().setProperty(CONFIG_TRACKING_ENABLED_PROPERTY, Boolean.TRUE.toString());
-        LOGGER.info(QuarkusExtensionUtil.getLogMessage("Enabled " + CONFIG_TRACKING_ENABLED_PROPERTY + " on " + project.getArtifactId()));
+        LOGGER.info(QuarkusBuildCachingUtil.getLogMessage("Enabled " + CONFIG_TRACKING_ENABLED_PROPERTY + " on " + project.getArtifactId()));
     }
 
     private void registerTrackConfigChanges(MavenProject project) {
@@ -93,7 +94,7 @@ public final class QuarkusBuildCachingLifecycleParticipant extends AbstractMaven
         }
         for (PluginExecution execution : quarkusMavenPlugin.getExecutions()) {
             if (execution.getGoals().contains(QuarkusBuildGoalMode.TRACK_CONFIG_CHANGES_GOAL)) {
-                LOGGER.debug(QuarkusExtensionUtil.getLogMessage(QuarkusBuildGoalMode.TRACK_CONFIG_CHANGES_GOAL + " is already declared on " + project.getArtifactId()));
+                LOGGER.debug(QuarkusBuildCachingUtil.getLogMessage(QuarkusBuildGoalMode.TRACK_CONFIG_CHANGES_GOAL + " is already declared on " + project.getArtifactId()));
                 return;
             }
         }
@@ -111,7 +112,7 @@ public final class QuarkusBuildCachingLifecycleParticipant extends AbstractMaven
 
         // safe here: afterProjectsRead runs before the execution plan is calculated
         quarkusMavenPlugin.addExecution(execution);
-        LOGGER.info(QuarkusExtensionUtil.getLogMessage("Registered the " + QuarkusBuildGoalMode.TRACK_CONFIG_CHANGES_GOAL + " goal on " + project.getArtifactId()));
+        LOGGER.info(QuarkusBuildCachingUtil.getLogMessage("Registered the " + QuarkusBuildGoalMode.TRACK_CONFIG_CHANGES_GOAL + " goal on " + project.getArtifactId()));
     }
 
 }

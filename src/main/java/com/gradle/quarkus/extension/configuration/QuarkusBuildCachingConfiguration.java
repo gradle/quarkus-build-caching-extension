@@ -1,10 +1,11 @@
-package com.gradle;
+package com.gradle.quarkus.extension.configuration;
 
+import com.gradle.quarkus.extension.QuarkusBuildCachingUtil;
 import org.apache.maven.project.MavenProject;
 
 import java.util.Properties;
 
-final class QuarkusExtensionConfiguration {
+public final class QuarkusBuildCachingConfiguration {
 
     // Disable caching flag key
     private static final String DEVELOCITY_QUARKUS_KEY_CACHE_ENABLED = "DEVELOCITY_QUARKUS_CACHE_ENABLED";
@@ -26,7 +27,7 @@ final class QuarkusExtensionConfiguration {
 
     private final Properties configuration = new Properties();
 
-    QuarkusExtensionConfiguration(MavenProject project) {
+    public QuarkusBuildCachingConfiguration(MavenProject project) {
         // loading default properties
         initWithDefault();
 
@@ -81,14 +82,14 @@ final class QuarkusExtensionConfiguration {
     private void overrideFromConfigurationFile(MavenProject project) {
         String configurationFile = configuration.getProperty(DEVELOCITY_QUARKUS_KEY_CONFIG_FILE);
         if(!configurationFile.isEmpty()) {
-            configuration.putAll(QuarkusExtensionUtil.loadProperties(project.getBasedir().getAbsolutePath(), configurationFile));
+            configuration.putAll(QuarkusBuildCachingUtil.loadProperties(project.getBasedir().getAbsolutePath(), configurationFile));
         }
     }
 
     /**
      * @return whether Quarkus cache is enabled or not
      */
-    boolean isQuarkusCacheEnabled() {
+    public boolean isQuarkusCacheEnabled() {
         // Quarkus cache is enabled by default
         return !Boolean.FALSE.toString().equals(configuration.get(DEVELOCITY_QUARKUS_KEY_CACHE_ENABLED));
     }
@@ -96,28 +97,28 @@ final class QuarkusExtensionConfiguration {
     /**
      * @return whether the extension registers the Quarkus goals its caching relies on by itself
      */
-    boolean isAutoConfigureEnabled() {
+    public boolean isAutoConfigureEnabled() {
         return !Boolean.FALSE.toString().equals(configuration.get(DEVELOCITY_QUARKUS_KEY_AUTO_CONFIGURE));
     }
 
     /**
      * @return whether the project version is kept out of what the native image generation is keyed on
      */
-    boolean isVersionIndependentBuildEnabled() {
+    public boolean isVersionIndependentBuildEnabled() {
         return Boolean.TRUE.toString().equals(configuration.get(DEVELOCITY_QUARKUS_KEY_VERSION_INDEPENDENT_BUILD));
     }
 
     /**
      * @return whether the native-image configuration Quarkus generates is ordered before it is used as a cache key
      */
-    boolean isNativeImageConfigNormalizationEnabled() {
+    public boolean isNativeImageConfigNormalizationEnabled() {
         return !Boolean.FALSE.toString().equals(configuration.get(DEVELOCITY_QUARKUS_KEY_NORMALIZE_NATIVE_IMAGE_CONFIG));
     }
 
     /**
      * @return whether native build requires in-container build strategy or not
      */
-    boolean isNativeBuildInContainerRequired() {
+    public boolean isNativeBuildInContainerRequired() {
         return !Boolean.FALSE.toString().equals(configuration.get(DEVELOCITY_QUARKUS_KEY_NATIVE_BUILD_IN_CONTAINER_REQUIRED));
     }
 
@@ -130,7 +131,7 @@ final class QuarkusExtensionConfiguration {
      *
      * @return dump config file name
      */
-    String getDumpConfigFileName() {
+    public String getDumpConfigFileName() {
         return ".quarkus/quarkus-prod-config-dump";
     }
 
@@ -139,7 +140,7 @@ final class QuarkusExtensionConfiguration {
      *
      * @return config check file name
      */
-    String getCurrentConfigFileName() {
+    public String getCurrentConfigFileName() {
         return "target/quarkus-prod-config-check";
     }
 
@@ -148,7 +149,7 @@ final class QuarkusExtensionConfiguration {
      *
      * @return dependency file name
      */
-    String getCurrentDependencyFileName() {
+    public String getCurrentDependencyFileName() {
         return "target/quarkus-prod-dependencies.txt";
     }
 
@@ -157,7 +158,7 @@ final class QuarkusExtensionConfiguration {
      *
      * @return dependency checksums file name
      */
-    String getCurrentDependencyChecksumsFileName() {
+    public String getCurrentDependencyChecksumsFileName() {
         return "target/quarkus-prod-dependency-checksums.txt";
     }
 

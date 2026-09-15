@@ -1,8 +1,10 @@
-package com.gradle;
+package com.gradle.quarkus.extension;
 
 import com.gradle.develocity.agent.maven.api.cache.BuildCacheApi;
 import com.gradle.develocity.agent.maven.api.cache.MojoMetadataProvider;
 import com.gradle.develocity.agent.maven.api.cache.NormalizationProvider;
+import com.gradle.quarkus.extension.configuration.QuarkusBuildCachingConfiguration;
+import com.gradle.quarkus.extension.configuration.TestConfiguration;
 import org.apache.maven.artifact.versioning.ComparableVersion;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,9 +20,9 @@ import java.util.Properties;
 /**
  * Caching instructions for the Quarkus build goal.
  */
-final class QuarkusBuildCache {
+final class QuarkusBuildCaching {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(QuarkusBuildCache.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(QuarkusBuildCaching.class);
 
     private static final String TARGET_DIR = "target/";
 
@@ -54,11 +56,11 @@ final class QuarkusBuildCache {
 
     void configureBuildCache(BuildCacheApi buildCache) {
         buildCache.registerNormalizationProvider(context -> {
-            QuarkusExtensionConfiguration extensionConfiguration = new QuarkusExtensionConfiguration(context.getProject());
+            QuarkusBuildCachingConfiguration extensionConfiguration = new QuarkusBuildCachingConfiguration(context.getProject());
             configureNormalization(context, extensionConfiguration);
         });
         buildCache.registerMojoMetadataProvider(context -> {
-            QuarkusExtensionConfiguration extensionConfiguration = new QuarkusExtensionConfiguration(context.getProject());
+            QuarkusBuildCachingConfiguration extensionConfiguration = new QuarkusBuildCachingConfiguration(context.getProject());
 
             context.withPlugin("quarkus-maven-plugin", () -> {
                 configureQuarkusBuildGoal(context, extensionConfiguration);
@@ -75,7 +77,7 @@ final class QuarkusBuildCache {
         });
     }
 
-    private void configureNormalization(NormalizationProvider.Context context, QuarkusExtensionConfiguration extensionConfiguration) {
+    private void configureNormalization(NormalizationProvider.Context context, QuarkusBuildCachingConfiguration extensionConfiguration) {
         if (extensionConfiguration.isQuarkusCacheEnabled()) {
             context.configureRuntimeClasspathNormalization(
                 normalization -> normalization.addPropertiesNormalization(extensionConfiguration.getCurrentConfigFileName(), QUARKUS_IGNORED_PROPERTIES)
@@ -83,15 +85,15 @@ final class QuarkusBuildCache {
         }
     }
 
-    private void configureQuarkusExtraTestInputs(MojoMetadataProvider.Context context, QuarkusExtensionConfiguration extensionConfiguration, TestConfiguration testConfiguration) {
-        LOGGER.debug(QuarkusExtensionUtil.getLogMessage(testConfiguration.toString()));
+    private void configureQuarkusExtraTestInputs(MojoMetadataProvider.Context context, QuarkusBuildCachingConfiguration extensionConfiguration, TestConfiguration testConfiguration) {
+        LOGGER.debug(QuarkusBuildCachingUtil.getLogMessage(testConfiguration.toString()));
         if (testConfiguration.isAddQuarkusInputs()) {
-            LOGGER.debug(QuarkusExtensionUtil.getLogMessage("Adding Quarkus extra test inputs"));
+            LOGGER.debug(QuarkusBuildCachingUtil.getLogMessage("Adding Quarkus extra test inputs"));
             context.inputs(inputs -> addQuarkusDependencyChecksumsInput(inputs, extensionConfiguration));
             context.inputs(inputs -> addQuarkusDependenciesInputs(inputs, extensionConfiguration));
         }
         if (testConfiguration.isAddQuarkusPackageInputs()) {
-            LOGGER.debug(QuarkusExtensionUtil.getLogMessage("Adding Quarkus extra test package inputs"));
+            LOGGER.debug(QuarkusBuildCachingUtil.getLogMessage("Adding Quarkus extra test package inputs"));
             context.inputs(inputs -> addQuarkusJarInput(inputs, testConfiguration));
         }
     }
@@ -105,20 +107,20 @@ final class QuarkusBuildCache {
         }
     }
 
-    private void configureQuarkusBuildGoal(MojoMetadataProvider.Context context, QuarkusExtensionConfiguration extensionConfiguration) {
+    private void configureQuarkusBuildGoal(MojoMetadataProvider.Context context, QuarkusBuildCachingConfiguration extensionConfiguration) {
         if (!"build".equals(context.getMojoExecution().getGoal())) {
             return;
         }
 
-        LOGGER.debug(QuarkusExtensionUtil.getLogMessage(extensionConfiguration.toString()));
+        LOGGER.debug(QuarkusBuildCachingUtil.getLogMessage(extensionConfiguration.toString()));
         if (!extensionConfiguration.isQuarkusCacheEnabled()) {
-            LOGGER.debug(QuarkusExtensionUtil.getLogMessage("Quarkus caching is disabled"));
+            LOGGER.debug(QuarkusBuildCachingUtil.getLogMessage("Quarkus caching is disabled"));
             return;
         }
-        LOGGER.debug(QuarkusExtensionUtil.getLogMessage("Quarkus caching is enabled"));
+        LOGGER.debug(QuarkusBuildCachingUtil.getLogMessage("Quarkus caching is enabled"));
 
         QuarkusBuildGoalMode mode = QuarkusBuildGoalMode.of(context.getMojoExecution(), context.getProject());
-        LOGGER.debug(QuarkusExtensionUtil.getLogMessage("Quarkus build goal execution '" + context.getMojoExecution().getExecutionId() + "' classified as " + mode));
+        LOGGER.debug(QuarkusBuildCachingUtil.getLogMessage("Quarkus build goal execution '" + context.getMojoExecution().getExecutionId() + "' classified as " + mode));
 
         switch (mode) {
             case NATIVE_SOURCES:
@@ -143,7 +145,7 @@ final class QuarkusBuildCache {
      * splitting exists to avoid.
      */
     private void configureUnsupportedExecution(MojoMetadataProvider.Context context) {
-        LOGGER.info(QuarkusExtensionUtil.getLogMessage("Quarkus build goal marked as not cacheable, declare it as a split native build to make the native image generation cacheable"));
+        LOGGER.info(QuarkusBuildCachingUtil.getLogMessage("Quarkus build goal marked as not cacheable, declare it as a split native build to make the native image generation cacheable"));
         context.outputs(outputs -> outputs.notCacheableBecause("only a split native build is cacheable, see the quarkus-build-caching-extension documentation"));
     }
 
@@ -159,7 +161,7 @@ final class QuarkusBuildCache {
      * {@link #configureNativeImageOutputs}.
      */
     private void configureNativeSourcesExecution(MojoMetadataProvider.Context context) {
-        LOGGER.info(QuarkusExtensionUtil.getLogMessage("Quarkus native-sources build goal marked as not cacheable"));
+        LOGGER.info(QuarkusBuildCachingUtil.getLogMessage("Quarkus native-sources build goal marked as not cacheable"));
         context.outputs(outputs -> outputs.notCacheableBecause("the augmentation is inexpensive compared to the size of the native-sources directory"));
     }
 
@@ -172,30 +174,30 @@ final class QuarkusBuildCache {
      * the arguments. Unlike a single execution, nothing has to be compared against a previous build: the augmentation
      * has already run, so its dump describes the configuration of this build.
      */
-    private void configureNativeImageExecution(MojoMetadataProvider.Context context, QuarkusExtensionConfiguration extensionConfiguration) {
+    private void configureNativeImageExecution(MojoMetadataProvider.Context context, QuarkusBuildCachingConfiguration extensionConfiguration) {
         warnIfQuarkusIsTooOld(context);
 
         // The key of this execution is the jar the native-sources execution produces. Without it there is nothing to
         // key on, which happens when the build is not native or when this execution is run on its own
         if (!QuarkusBuildGoalMode.nativeImageArgsFile(context.getProject()).exists()) {
-            LOGGER.info(QuarkusExtensionUtil.getLogMessage(QuarkusBuildGoalMode.NATIVE_SOURCES_DIR + "/" + QuarkusBuildGoalMode.NATIVE_IMAGE_ARGS_FILE_NAME + " not found, is the native build enabled?"));
-            LOGGER.info(QuarkusExtensionUtil.getLogMessage("Quarkus native-image build goal marked as not cacheable"));
+            LOGGER.info(QuarkusBuildCachingUtil.getLogMessage(QuarkusBuildGoalMode.NATIVE_SOURCES_DIR + "/" + QuarkusBuildGoalMode.NATIVE_IMAGE_ARGS_FILE_NAME + " not found, is the native build enabled?"));
+            LOGGER.info(QuarkusBuildCachingUtil.getLogMessage("Quarkus native-image build goal marked as not cacheable"));
             context.outputs(outputs -> outputs.notCacheableBecause("the native-sources execution did not produce the jar this execution is keyed on"));
             return;
         }
 
         // Load the Quarkus configuration recorded by the augmentation of this very build
-        Properties quarkusRecordedProperties = QuarkusExtensionUtil.loadProperties(context.getProject().getBasedir().getAbsolutePath(), extensionConfiguration.getDumpConfigFileName());
+        Properties quarkusRecordedProperties = QuarkusBuildCachingUtil.loadProperties(context.getProject().getBasedir().getAbsolutePath(), extensionConfiguration.getDumpConfigFileName());
         if (!isConfigDumpRecordedByNativeSourcesBuild(quarkusRecordedProperties)) {
-            LOGGER.info(QuarkusExtensionUtil.getLogMessage("Quarkus native-image build goal marked as not cacheable"));
+            LOGGER.info(QuarkusBuildCachingUtil.getLogMessage("Quarkus native-image build goal marked as not cacheable"));
             context.outputs(outputs -> outputs.notCacheableBecause("the Quarkus configuration recorded by the native-sources execution is unavailable"));
             return;
         }
 
         boolean isInContainerBuild = QuarkusBuildGoalMode.nativeBuilderImageFile(context.getProject()).exists();
         if (extensionConfiguration.isNativeBuildInContainerRequired() && !isInContainerBuild) {
-            LOGGER.info(QuarkusExtensionUtil.getLogMessage("Quarkus build strategy is not in-container"));
-            LOGGER.info(QuarkusExtensionUtil.getLogMessage("Quarkus native-image build goal marked as not cacheable"));
+            LOGGER.info(QuarkusBuildCachingUtil.getLogMessage("Quarkus build strategy is not in-container"));
+            LOGGER.info(QuarkusBuildCachingUtil.getLogMessage("Quarkus native-image build goal marked as not cacheable"));
             context.outputs(outputs -> outputs.notCacheableBecause("the in-container build strategy is required"));
             return;
         }
@@ -204,11 +206,11 @@ final class QuarkusBuildCache {
             // Reaching here with a local toolchain means the in-container requirement was lifted. The OS and the JDK
             // are added as inputs below, but the native toolchain itself cannot be: native-sources/graalvm.version
             // holds the version Quarkus supports, a constant, not the one that will run.
-            LOGGER.warn(QuarkusExtensionUtil.getLogMessage("Quarkus native image is built with a local toolchain, as " + DEVELOCITY_QUARKUS_NATIVE_BUILD_IN_CONTAINER_REQUIRED_KEY + " is disabled"));
-            LOGGER.warn(QuarkusExtensionUtil.getLogMessage("The GraalVM or Mandrel version is not part of the cache key: only share these entries between environments running an identical native toolchain, otherwise an executable built by another toolchain will be restored"));
+            LOGGER.warn(QuarkusBuildCachingUtil.getLogMessage("Quarkus native image is built with a local toolchain, as " + DEVELOCITY_QUARKUS_NATIVE_BUILD_IN_CONTAINER_REQUIRED_KEY + " is disabled"));
+            LOGGER.warn(QuarkusBuildCachingUtil.getLogMessage("The GraalVM or Mandrel version is not part of the cache key: only share these entries between environments running an identical native toolchain, otherwise an executable built by another toolchain will be restored"));
         }
 
-        LOGGER.info(QuarkusExtensionUtil.getLogMessage("Quarkus native-image build goal marked as cacheable"));
+        LOGGER.info(QuarkusBuildCachingUtil.getLogMessage("Quarkus native-image build goal marked as cacheable"));
         context.inputs(inputs -> {
             if (!isInContainerBuild) {
                 // the builder image pins the toolchain and the OS of an in-container build
@@ -234,7 +236,7 @@ final class QuarkusBuildCache {
             return;
         }
         if (new ComparableVersion(quarkusVersion).compareTo(new ComparableVersion(MINIMUM_QUARKUS_VERSION)) < 0) {
-            LOGGER.warn(QuarkusExtensionUtil.getLogMessage("Quarkus " + quarkusVersion + " is below " + MINIMUM_QUARKUS_VERSION
+            LOGGER.warn(QuarkusBuildCachingUtil.getLogMessage("Quarkus " + quarkusVersion + " is below " + MINIMUM_QUARKUS_VERSION
                     + ", the minimum this extension supports: the augmentation is not reproducible enough for the native image cache to hit, so expect every build to miss"));
         }
     }
@@ -246,13 +248,13 @@ final class QuarkusBuildCache {
      */
     private boolean isConfigDumpRecordedByNativeSourcesBuild(Properties quarkusRecordedProperties) {
         if (quarkusRecordedProperties.isEmpty()) {
-            LOGGER.info(QuarkusExtensionUtil.getLogMessage("Quarkus configuration dump not found, is quarkus.config-tracking.enabled set to true?"));
+            LOGGER.info(QuarkusBuildCachingUtil.getLogMessage("Quarkus configuration dump not found, is quarkus.config-tracking.enabled set to true?"));
             return false;
         }
 
         if (!Boolean.parseBoolean(quarkusRecordedProperties.getProperty(QUARKUS_CONFIG_KEY_NATIVE_SOURCES_ONLY))
                 && !PACKAGE_NATIVE_SOURCES.equals(quarkusRecordedProperties.getProperty(QUARKUS_CONFIG_KEY_DEPRECATED_PACKAGE_TYPE))) {
-            LOGGER.info(QuarkusExtensionUtil.getLogMessage("Quarkus configuration dump was not recorded by the native-sources build goal"));
+            LOGGER.info(QuarkusBuildCachingUtil.getLogMessage("Quarkus configuration dump was not recorded by the native-sources build goal"));
             return false;
         }
 
@@ -292,13 +294,6 @@ final class QuarkusBuildCache {
         });
     }
 
-
-
-
-
-
-
-
     private void addOsInputs(MojoMetadataProvider.Context.Inputs inputs) {
         inputs.property("osName", System.getProperty("os.name"))
                 .property("osVersion", System.getProperty("os.version"))
@@ -320,7 +315,7 @@ final class QuarkusBuildCache {
     private void addQuarkusConfigurationFilesInputs(MojoMetadataProvider.Context.Inputs inputs, Properties quarkusCurrentProperties) {
         for (String quarkusFilePropertyKey : QUARKUS_KEYS_AS_FILE_INPUTS) {
             String quarkusFilePropertyValue = quarkusCurrentProperties.getProperty(quarkusFilePropertyKey);
-            if (QuarkusExtensionUtil.isNotEmpty(quarkusFilePropertyValue)) {
+            if (QuarkusBuildCachingUtil.isNotEmpty(quarkusFilePropertyValue)) {
                 inputs.fileSet(quarkusFilePropertyKey, new File(quarkusFilePropertyValue), fileSet -> fileSet.normalizationStrategy(MojoMetadataProvider.Context.FileSet.NormalizationStrategy.RELATIVE_PATH));
             }
         }
@@ -330,7 +325,7 @@ final class QuarkusBuildCache {
      * This method is deprecated and kept for compatibility reasons @see {@link #addQuarkusDependenciesInputs} for replacement
      */
     @Deprecated
-    private void addQuarkusDependencyChecksumsInput(MojoMetadataProvider.Context.Inputs inputs, QuarkusExtensionConfiguration extensionConfiguration) {
+    private void addQuarkusDependencyChecksumsInput(MojoMetadataProvider.Context.Inputs inputs, QuarkusBuildCachingConfiguration extensionConfiguration) {
         inputs.fileSet("quarkusDependencyChecksums", new File(extensionConfiguration.getCurrentDependencyChecksumsFileName()), fileSet -> fileSet.normalizationStrategy(MojoMetadataProvider.Context.FileSet.NormalizationStrategy.RELATIVE_PATH));
     }
 
@@ -363,17 +358,17 @@ final class QuarkusBuildCache {
                 .normalizationStrategy(MojoMetadataProvider.Context.FileSet.NormalizationStrategy.RELATIVE_PATH));
     }
 
-    private void addQuarkusDependenciesInputs(MojoMetadataProvider.Context.Inputs inputs, QuarkusExtensionConfiguration extensionConfiguration) {
+    private void addQuarkusDependenciesInputs(MojoMetadataProvider.Context.Inputs inputs, QuarkusBuildCachingConfiguration extensionConfiguration) {
         File quarkusDependencyFile = new File(extensionConfiguration.getCurrentDependencyFileName());
         if (quarkusDependencyFile.exists()) {
             try {
                 List<String> quarkusDependencies = Files.readAllLines(quarkusDependencyFile.toPath(), Charset.defaultCharset());
                 inputs.fileSet("quarkusDependencies", quarkusDependencies, fileSet -> fileSet.normalizationStrategy(MojoMetadataProvider.Context.FileSet.NormalizationStrategy.CLASSPATH));
             } catch (IOException e) {
-                LOGGER.error(QuarkusExtensionUtil.getLogMessage("Error while loading " + quarkusDependencyFile), e);
+                LOGGER.error(QuarkusBuildCachingUtil.getLogMessage("Error while loading " + quarkusDependencyFile), e);
             }
         } else {
-            LOGGER.debug(QuarkusExtensionUtil.getLogMessage(quarkusDependencyFile + " not found"));
+            LOGGER.debug(QuarkusBuildCachingUtil.getLogMessage(quarkusDependencyFile + " not found"));
         }
     }
 

@@ -1,5 +1,7 @@
-package com.gradle;
+package com.gradle.quarkus.extension;
 
+import com.gradle.quarkus.extension.configuration.QuarkusBuildCachingConfiguration;
+import com.gradle.quarkus.extension.normalization.NativeImageConfigNormalizer;
 import org.apache.maven.execution.MojoExecutionEvent;
 import org.apache.maven.execution.MojoExecutionListener;
 import org.apache.maven.project.MavenProject;
@@ -51,7 +53,7 @@ public final class QuarkusBuildCachingMojoExecutionListener implements MojoExecu
             return;
         }
         MavenProject project = event.getProject();
-        QuarkusExtensionConfiguration extensionConfiguration = new QuarkusExtensionConfiguration(project);
+        QuarkusBuildCachingConfiguration extensionConfiguration = new QuarkusBuildCachingConfiguration(project);
         if (!extensionConfiguration.isQuarkusCacheEnabled() || !extensionConfiguration.isAutoConfigureEnabled()) {
             return;
         }
@@ -88,9 +90,9 @@ public final class QuarkusBuildCachingMojoExecutionListener implements MojoExecu
             Files.write(descriptor.toPath(),
                     (TYPE_KEY + "=" + NATIVE_ARTIFACT_TYPE + System.lineSeparator()
                             + PATH_KEY + "=" + runnerName + System.lineSeparator()).getBytes(StandardCharsets.UTF_8));
-            LOGGER.info(QuarkusExtensionUtil.getLogMessage("Restored " + descriptor.getName() + ", which the augmentation left describing the native sources"));
+            LOGGER.info(QuarkusBuildCachingUtil.getLogMessage("Restored " + descriptor.getName() + ", which the augmentation left describing the native sources"));
         } catch (IOException e) {
-            LOGGER.warn(QuarkusExtensionUtil.getLogMessage("Unable to restore " + descriptor), e);
+            LOGGER.warn(QuarkusBuildCachingUtil.getLogMessage("Unable to restore " + descriptor), e);
         }
     }
 
@@ -120,9 +122,9 @@ public final class QuarkusBuildCachingMojoExecutionListener implements MojoExecu
                 // some file systems have no hard links, and a copy is only a cost
                 Files.copy(executable.toPath(), versioned.toPath());
             }
-            LOGGER.info(QuarkusExtensionUtil.getLogMessage("Linked " + versionedName + " to the cached " + executable.getName()));
+            LOGGER.info(QuarkusBuildCachingUtil.getLogMessage("Linked " + versionedName + " to the cached " + executable.getName()));
         } catch (IOException e) {
-            LOGGER.warn(QuarkusExtensionUtil.getLogMessage("Unable to provide " + versionedName), e);
+            LOGGER.warn(QuarkusBuildCachingUtil.getLogMessage("Unable to provide " + versionedName), e);
         }
     }
 
@@ -130,7 +132,7 @@ public final class QuarkusBuildCachingMojoExecutionListener implements MojoExecu
         if (!descriptor.exists()) {
             return false;
         }
-        Properties descriptorProperties = QuarkusExtensionUtil.loadProperties(descriptor.getParent(), descriptor.getName());
+        Properties descriptorProperties = QuarkusBuildCachingUtil.loadProperties(descriptor.getParent(), descriptor.getName());
         return NATIVE_ARTIFACT_TYPE.equals(descriptorProperties.getProperty(TYPE_KEY));
     }
 

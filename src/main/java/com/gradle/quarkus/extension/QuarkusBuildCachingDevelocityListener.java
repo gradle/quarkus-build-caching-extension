@@ -1,4 +1,4 @@
-package com.gradle;
+package com.gradle.quarkus.extension;
 
 import com.gradle.develocity.agent.maven.api.DevelocityApi;
 import com.gradle.develocity.agent.maven.api.DevelocityListener;
@@ -10,12 +10,12 @@ public final class QuarkusBuildCachingDevelocityListener implements DevelocityLi
 
     private final Logger LOGGER = LoggerFactory.getLogger(QuarkusBuildCachingDevelocityListener.class);
 
-    private final QuarkusBuildCache quarkusBuildCache = new QuarkusBuildCache();
+    private final QuarkusBuildCaching quarkusBuildCaching = new QuarkusBuildCaching();
 
     @Override
     public void configure(DevelocityApi api, MavenSession session) {
         LOGGER.debug("Executing extension: " + getClass().getSimpleName());
-        quarkusBuildCache.configureBuildCache(api.getBuildCache());
+        quarkusBuildCaching.configureBuildCache(api.getBuildCache());
     }
 
 }

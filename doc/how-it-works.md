@@ -2,7 +2,7 @@
 
 The two goals, what the cached one is keyed on, and what the split changes. Back to the [README](../README.md).
 
-The logic is isolated to the [QuarkusBuildCache](../src/main/java/com/gradle/QuarkusBuildCache.java) class, and the classification of a `build` execution to [QuarkusBuildGoalMode](../src/main/java/com/gradle/QuarkusBuildGoalMode.java).
+The logic is isolated to the [QuarkusBuildCaching](../src/main/java/com/gradle/quarkus/extension/QuarkusBuildCaching.java) class, and the classification of a `build` execution to [QuarkusBuildGoalMode](../src/main/java/com/gradle/quarkus/extension/QuarkusBuildGoalMode.java).
 
 ## What the extension sets up for you
 

@@ -1,4 +1,4 @@
-package com.gradle;
+package com.gradle.quarkus.extension.normalization;
 
 import java.util.ArrayList;
 import java.util.List;
