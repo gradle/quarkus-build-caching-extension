@@ -9,7 +9,7 @@
 > - _[Quarkus Build Caching Extension][quarkus-build-caching-extension]  (this repository)_
 # Quarkus Build Caching Extension
 
-Makes the expensive half of a Quarkus native build — the `native-image` run — cacheable with [Develocity](https://docs.develocity.ai/maven/current/maven-extension/#using_the_build_cache), by keying it on the jar the augmentation produces rather than on everything that feeds the augmentation.
+Makes the expensive half of a Quarkus native build — the `native-image` run — cacheable with [Develocity](https://docs.develocity.ai/maven/current/maven-extension/#using_the_build_cache), by keying it on the jar the augmentation produces.
 
 A change that does not reach the runner jar — a `provided` dependency, a build-time-only library — stops costing a native image build.
 
