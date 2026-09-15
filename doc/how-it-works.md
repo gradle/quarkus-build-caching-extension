@@ -6,8 +6,6 @@ The logic is isolated to the [QuarkusBuildCache](../src/main/java/com/gradle/Qua
 
 ## What the extension sets up for you
 
-Three things the caching relies on are mechanical consequences of wanting it, so the extension takes care of them rather than making every project repeat them. All of them only ever apply to a project declaring the split layout above.
-
 **Quarkus config tracking.** The native image generation is keyed on the configuration the augmentation recorded, which Quarkus only writes when `quarkus.config-tracking.enabled` is set and the `track-config-changes` goal is bound. The extension sets the property and registers the goal on the project's own `quarkus-maven-plugin` — so it inherits the version already declared:
 
 ```
@@ -25,16 +23,11 @@ The extension rewrites it after the native image generation instead:
 [INFO] [quarkus-build-caching-extension] Restored quarkus-artifact.properties, which the augmentation left describing the native sources
 ```
 
-A descriptor that already describes the executable is left untouched, so the `metadata.graalvm.version.*` entries a real native build records survive a cache miss. They are not reconstructed on a cache hit; `@QuarkusIntegrationTest` reads only `type` and `path`.
-
 **The test goal inputs.** Quarkus adds dependencies to the build dynamically, so they sit on no classpath Develocity would fingerprint on its own, yet a `@QuarkusTest` runs against them. They are listed in `target/quarkus-prod-dependencies.txt` by the `track-config-changes` goal, and declared as an input of the surefire and failsafe goals with a `CLASSPATH` normalization strategy; failsafe also gets `quarkus-artifact.properties`. See [automatic configuration](configuration.md#automatic-configuration) for the per-module override.
 
 Set `DEVELOCITY_QUARKUS_AUTO_CONFIGURE=false` to turn all three off and configure everything in the pom yourself. Note that an injected execution does not show up in `mvn help:effective-pom`, which is why the extension logs what it registers.
 
-> [!NOTE]
-> An in-container build produces a Linux executable. Running `@QuarkusIntegrationTest` against it therefore requires a Linux host — on macOS the launcher reports `cannot execute binary file`. This is a property of the in-container strategy, not of caching.
-
-## The two goals
+## The Maven goals
 
 ```
 process-resources
@@ -59,8 +52,6 @@ package
 ```
 
 The augmentation is never cached. It is inexpensive — 1.96s against the minutes `native-image` takes — while `target/native-sources` holds the runner jar along with every runtime dependency and would make a far larger cache entry than the executable itself. Always running it is also what keeps the configuration dump describing the current build.
-
-The first build of a project is already cacheable: nothing here depends on a previous build having run.
 
 ## The cacheable goal
 
@@ -89,24 +80,9 @@ Notably absent: the compile classpath, the config-check file and the Quarkus dep
 
 [Config tracking](#what-the-extension-sets-up-for-you) must be enabled: the native image generation keys on the configuration dump, and refuses to be cached without one.
 
-Not every Quarkus property reaches `native-image.args`. The build steps running *after* `native-image` are the reason: `quarkus.native.compression.*` drives the UPX compression of the produced executable, is recorded in the dump, and appears in neither the jar nor the arguments. Keying on the jar and the arguments alone would hand back an executable compressed with the wrong settings.
-
 The dump does not have to be checked in or restored. The augmentation runs first and is never cached, so by the time the second execution's key is computed the dump on disk describes **this** build. Nothing is compared against a previous build, which also means a Quarkus configuration change costs exactly one rebuild rather than leaving the next build uncacheable too.
 
 The extension verifies that: the dump has to record `quarkus.native.sources-only=true`, which only an augmentation-only execution writes. A dump left over from an earlier build, or checked in from a single-execution setup, is rejected and the native image generation is not cached.
-
-Recording only the augmentation loses nothing, which is worth spelling out since the dump is not a snapshot of the whole configuration. `ConfigTrackingInterceptor` collects each option *as it is read*, and `ConfigTrackingWriter` keeps those that are build-time or build-time-fixed and not excluded. What makes the two modes agree is that the build-time config roots are all mapped when the augmentation starts, not lazily by the build step that needs them, so the set of options read does not depend on which build steps run.
-
-Measured on the `rest-villains` service of the Quarkus super-heroes workshop, comparing a single `build` execution run with and without `quarkus.native.sources-only`:
-
-| | sources-only | native |
-|---|---|---|
-| `native-image` ran | no | yes |
-| properties recorded | 249 | 249 |
-| keys present in one dump only | none | none |
-| values differing | `quarkus.native.sources-only` only | |
-
-Native-specific properties are all there, output type included: `quarkus.package.jar.type`, `quarkus.native.debug.enabled` and `quarkus.native.compression.enabled` are recorded with the value they were given, whether or not the build step reading them runs. The one differing property is ignored by the extension, along with the two below.
 
 Two details of how the dump is keyed on:
 - properties are added as individual goal inputs rather than as a file, so a cache miss names the property responsible
@@ -143,10 +119,9 @@ Nothing in Quarkus core consumes that directory, and the descriptor can be [put 
 
 **Only the executable is a cached output.** Everything else the build produces is written by the augmentation, which always runs, so it is there on every build regardless. It could not be cached anyway: a file both executions write is an overlapping output, and declaring one stops the native image generation from being stored at all.
 
-## Limitations
+## Good to know
 
 - **`target/quarkus-artifact.properties` cannot be a declared output**, since the augmentation writes it too. The extension [restores it](#what-the-extension-sets-up-for-you) after the native image generation instead, but the `metadata.graalvm.version.*` entries are not reconstructed on a cache hit.
-- **`quarkus.package.output-directory` cannot be used to work around it.** Relocating the augmentation output fails in `sources-only` mode (`NoSuchFileException` on the `lib` directory), reported against Quarkus 3.39.3.
 - **Only the executable is a cached output.** Everything else under `target` is written by the augmentation, which always runs, so it is present on every build whether the native image was rebuilt or restored. Declaring any of it as an output of the native image generation would be an [overlapping output](https://docs.develocity.ai/maven/current/maven-extension/) and would stop the goal being stored at all — which is why Kubernetes manifests and Helm charts, both written by the augmentation, are deliberately left alone.
 - **The local GraalVM version is not part of the key** for a non in-container build. `native-sources/graalvm.version` holds the version Quarkus *supports*, a hardcoded constant, not the installed one. The in-container build strategy, required by default, pins the whole toolchain through `native-sources/native-builder.image`.
 - Absolute paths appearing in `native-image.args`, which `quarkus.native.agent-configuration-directory` and PGO profiles introduce, make the key machine-specific.
