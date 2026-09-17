@@ -7,44 +7,94 @@
 > - _[Develocity Build Validation Scripts][develocity-build-validation-scripts]_
 > - _[Develocity Open Source Projects][develocity-oss-projects]_
 > - _[Quarkus Build Caching Extension][quarkus-build-caching-extension]  (this repository)_
+# Quarkus Build Caching Extension
 
-# Custom Maven Extension to make Quarkus build goal cacheable
-This Maven extension allows to make the [Quarkus Maven plugin](https://quarkus.io/guides/quarkus-maven-plugin) `build` goal cacheable.
+Makes the expensive half of a Quarkus native build — the `native-image` run — cacheable with [Develocity](https://docs.develocity.ai/maven/current/maven-extension/#using_the_build_cache), by keying it on the jar the augmentation produces.
 
-This project performs programmatic configuration of the [Develocity Build Cache](https://docs.develocity.ai/maven/current/maven-extension/#using_the_build_cache) through a Maven extension. See [here](https://docs.develocity.ai/maven/current/maven-extension/#custom_extension) for more details.
+A change that does not reach the runner jar — a `provided` dependency, a build-time-only library — stops costing a native image build.
 
-*Note:*<br>
-A native executable can be a very large file. Copying it from/to the local cache, or transferring it from/to the remote cache can be an expensive operation that has to be balanced with the duration of the work being avoided.
+## What it does
+
+A native build does two very different things in one goal: it augments the application into a jar, then hands that jar to `native-image`. The first takes seconds, the second minutes. As one goal execution, the expensive half is keyed on the inputs of the cheap one, the compile classpath included.
+
+Declaring the `build` goal twice separates them, and the extension caches the second:
+
+```mermaid
+---
+config:
+  look: handDrawn
+  theme: base
+  flowchart:
+    curve: basis
+    padding: 18
+    rankSpacing: 40
+    wrappingWidth: 300
+  themeVariables:
+    lineColor: '#868e96'
+    textColor: '#212529'
+    clusterBkg: 'transparent'
+    clusterBorder: '#adb5bd'
+    titleColor: '#6c757d'
+---
+flowchart LR
+    %% WL and SP1/SP2 are invisible spacers: they pad the left section so both
+    %% sections come out the same size. P1..P11 draw the dotted divider between them.
+    subgraph plain["without the extension"]
+        direction TB
+        U(["<b>quarkus:build</b><br/>augmentation + native-image<br/>one execution<br/><code>NOT CACHED</code>"])
+        UO(["native-image runs<br/>on every build"])
+        URUN["target/*-runner"]
+        WL["&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"]
+        U ==> UO ==> URUN
+        URUN ~~~ SP1
+        SP1 ~~~ SP2
+        SP2 ~~~ WL
+    end
+
+    subgraph sep[" "]
+        direction TB
+        P1(" ") -.- P2(" ") -.- P3(" ") -.- P4(" ") -.- P5(" ") -.- P6(" ") -.- P7(" ") -.- P8(" ") -.- P9(" ") -.- P10(" ") -.- P11(" ")
+    end
+
+    subgraph split["with the extension"]
+        direction TB
+        A(["<b>quarkus:build</b><br/>@quarkus-jar<br/>augmentation only<br/><code>NOT CACHED</code>"])
+        H["target/native-sources/<br/>*-runner.jar + lib/<br/>native-image.args<br/>native-builder.image"]
+        B(["<b>quarkus:build</b><br/>@quarkus-native-image<br/>runs native-image<br/><code>CACHED</code>"])
+        HIT(["cache hit<br/>executable restored"])
+        MISS(["cache miss<br/>native-image runs"])
+        RUN["target/*-runner"]
+        A ==> H ==> B
+        B ==> HIT
+        B ==> MISS
+        HIT ==> RUN
+        MISS ==> RUN
+    end
+
+    plain ~~~ sep ~~~ split
+
+    classDef exec fill:#a5d8ff,stroke:#1971c2,stroke-width:2px,color:#0b2545
+    classDef artifact fill:#d0bfff,stroke:#7048e8,stroke-width:2px,color:#20124d
+    classDef outcome fill:#f1f3f5,stroke:#adb5bd,stroke-width:2px,color:#212529
+    classDef blank fill:none,stroke:none,color:transparent
+    class U,A,B exec
+    class H,RUN,URUN artifact
+    class UO,HIT,MISS outcome
+    class SP1,SP2,P1,P2,P3,P4,P5,P6,P7,P8,P9,P10,P11,WL blank
+    style sep fill:none,stroke:none
+```
+
+The first execution is cheap and always runs. The second is the one that costs minutes, and it is keyed only on what the first wrote — not on the compile classpath — so a change that does not reach the runner jar reuses the executable.
 
 ## Requirements
-Quarkus 3.2.4 and above which brings [track-config-changes goal](https://quarkus.io/guides/config-reference#tracking-build-time-configuration-changes-between-builds)
 
-> [!NOTE]  
-> Although Quarkus 3.2.4 is required, 3.9.0 and above is recommended as it exposes [Quarkus extra dependencies](#quarkus-extra-dependencies) which is added as extra input by the current extension.
-> 
-> This additional input is necessary when using snapshot versions (or when overwriting fixed version) of
-> - The Quarkus dependencies
-> - A custom Quarkus extension
+- **Quarkus 3.39.3 or above.** Below it the augmentation output is not stable enough for the cache to ever hit — see [scope and requirements](doc/scope.md).
+- `com.gradle:develocity-maven-extension`
+- An in-container native build by default, which pins the toolchain and makes entries shareable between machines. The requirement can be lifted when every environment sharing the cache has identical system inputs — see [lifting the in-container requirement](doc/configuration.md#lifting-the-in-container-requirement).
 
-## Limitations
+## Setup
 
-### Supported package types
-Only the `native`, `uber-jar`, `jar`, `fast-jar` and `legacy-jar` [packaging types](https://quarkus.io/guides/maven-tooling#quarkus-package-pkg-package-config_quarkus.package.type) can be made cacheable
-
-### Build strategy
-By default, the `native` packaging is cacheable only if the in-container build strategy (`quarkus.native.container-build=true`) is configured along with a fixed build image (`quarkus.native.builder-image`).
-The in-container build strategy means the build is as reproducible as possible. Even so, some timestamps and instruction ordering may be different even when built on the same system in the same environment.
-
-If the build environments are strictly identical, this restriction can be removed by setting `DEVELOCITY_QUARKUS_NATIVE_BUILD_IN_CONTAINER_REQUIRED=false`. See [configuration section](#build-strategy-1) for more details.
-
-> [!NOTE]
-> When the in-container build strategy is used as a fallback the caching feature will be disabled. The fallback may happen due to GraalVM requirements not met. The recommendation is to explicitly set the in-container strategy (`quarkus.native.container-build=true`) to benefit from caching
-
-## Usage
-
-### Extension declaration
-
-Reference the extension in `.mvn/extensions.xml` (this extension requires the develocity-maven-extension):
+Two steps. Declare the extension in `.mvn/extensions.xml`:
 
 ```xml
 <extensions>
@@ -56,29 +106,12 @@ Reference the extension in `.mvn/extensions.xml` (this extension requires the de
     <extension>
         <groupId>com.gradle</groupId>
         <artifactId>quarkus-build-caching-extension</artifactId>
-        <version>1.12</version>
+        <version>2.0</version>
     </extension>
 </extensions>
 ```
 
-Note on the Compatibility with The Develocity extension:
-
-| Extension                                      | Compatible version |
-|------------------------------------------------|--------------------|
-| `com.gradle:develocity-maven-extension`        | 1.+                |
-| `com.gradle:gradle-enterprise-maven-extension` | 0.12               |
-
-### The `quarkus-maven-plugin` configuration
-
-Enable [Quarkus config tracking](https://quarkus.io/guides/config-reference#dumping-build-time-configuration-options-read-during-the-build) in `pom.xml`:
-
-```xml
-<properties>
-    <quarkus.config-tracking.enabled>true</quarkus.config-tracking.enabled>
-</properties>
-```
-
-Add the `track-prod-config-changes` execution to the `quarkus-maven-plugin` configuration:
+Then declare the `build` goal twice, the first one stopping at the augmentation:
 
 ```xml
 <plugin>
@@ -88,300 +121,85 @@ Add the `track-prod-config-changes` execution to the `quarkus-maven-plugin` conf
     <extensions>true</extensions>
     <executions>
         <execution>
-            <id>track-prod-config-changes</id>
-            <phase>process-resources</phase>
-            <goals>
-                <goal>track-config-changes</goal>
-            </goals>
+            <id>quarkus-jar</id>
+            <phase>package</phase>
+            <goals><goal>build</goal></goals>
             <configuration>
-                <dumpCurrentWhenRecordedUnavailable>true</dumpCurrentWhenRecordedUnavailable>
+                <systemProperties>
+                    <quarkus.native.sources-only>true</quarkus.native.sources-only>
+                </systemProperties>
             </configuration>
         </execution>
         <execution>
-            <goals>
-                <goal>build</goal>
-                <goal>generate-code</goal>
-                <goal>generate-code-tests</goal>
-            </goals>
+            <id>quarkus-native-image</id>
+            <phase>package</phase>
+            <goals><goal>build</goal></goals>
         </execution>
     </executions>
 </plugin>
 ```
 
-### Quarkus configuration dump initialization
+That is all. The extension recognizes the layout on its own and sets up the rest: Quarkus config tracking, the artifact descriptor after a cache hit, and the test goal inputs. See [what it sets up for you](doc/how-it-works.md#what-the-extension-sets-up-for-you).
 
-After applying the quarkus-maven-plugin [configuration step](#quarkus-maven-plugin-configuration), invoke the Quarkus `build` goal to generate the `.quarkus/quarkus-prod-config-dump` file.
-This file is required to make the Quarkus `build` goal cacheable.
+## A version that moves every build
 
-The file should be checked-in to the source code repository.
-in continuous integration environment, an alternative is to have the file restored (see [this option](https://github.com/marketplace/actions/cache#restoring-and-saving-cache-using-a-single-action) for GitHub actions as an example).
-
-If the file has some system dependent properties, it is possible to have [different configuration dump](#quarkus-configuration-dump) to reflect those changes (local, ci, os...) conditionally enabled by Maven profiles. 
-
-It is also possible to [ignore properties](#ignore-properties-in-quarkus-configuration-dump) not impacting the produced artifacts. 
-The `quarkus.native.graalvm-home` and `quarkus.native.java-home` are some classic examples, the JDK version is already captured as a goal input and the path to the JDK does not impact the produced artifact.
-
-## Configuration
-
-Configuration can be set with (listed in order of precedence ):
-- [Environment variables](#environment-variables)
-- [Maven properties](#maven-properties)
-- [Configuration file](#configuration-file)
-
-### Environment variables
-
-#### Feature toggle
-
-The caching can be disabled by setting:
-```properties
-DEVELOCITY_QUARKUS_CACHE_ENABLED=false
-```
-
-#### Quarkus configuration dump
-
-By default, the values below are used to compute the dump-config (`.quarkus/quarkus-prod-config-dump`) and
-config-check (`target/quarkus-prod-config-check`) file names:
-- _build profile_: prod
-- _file prefix_: quarkus
-- _file suffix_: config-dump
-
-Those values can be overridden, when CI and local have different Quarkus properties for instance:
-```properties
-DEVELOCITY_QUARKUS_BUILD_PROFILE=prod
-DEVELOCITY_QUARKUS_DUMP_CONFIG_PREFIX=quarkus
-DEVELOCITY_QUARKUS_DUMP_CONFIG_SUFFIX=config-dump-ci
-```
-
-If the default values are overridden, the Quarkus properties need to be set accordingly:
-```xml
-<quarkus.config-tracking.file-suffix>-config-dump-ci</quarkus.config-tracking.file-suffix>
-<quarkus.recorded-build-config.file>.quarkus/quarkus-prod-config-dump-ci</quarkus.recorded-build-config.file>
-```
-
-It is also possible to use subfolders in `.quarkus` to organize the different dump-config files. For instance, to have the dump-config at `.quarkus/ci/quarkus-prod-config-dump`:
-```properties
-DEVELOCITY_QUARKUS_DUMP_CONFIG_SUBFOLDER=ci
-```
-Quarkus configuration has to be aligned in such case to store the dump-config in the subfolder:
-```xml
-<quarkus.config-tracking.directory>.quarkus/ci</quarkus.config-tracking.directory>
-```
-
-#### Extra outputs
-
-Some additional outputs can be configured if necessary (when using the [quarkus-helm](https://quarkus.io/blog/quarkus-helm/#getting-started-with-the-quarkus-helm-extension) extension for instance). The paths are relative to the `target` folder.
-
-Directories can be added (csv list):
-```properties
-DEVELOCITY_QUARKUS_EXTRA_OUTPUT_DIRS=helm
-```
-or Specific files (csv list):
-```properties
-DEVELOCITY_QUARKUS_EXTRA_OUTPUT_FILES=helm/kubernetes/my-project/Chart.yaml,helm/kubernetes/my-project/values.yaml
-```
-
-#### Build strategy
-
-The default is to enable caching only when the in-container build strategy is used. 
-If the build environments are strictly identical build over build, the restriction can be removed by setting:
-```properties
-DEVELOCITY_QUARKUS_NATIVE_BUILD_IN_CONTAINER_REQUIRED=false
-```
-
-### Maven properties
-
-The same configuration can be achieved with Maven properties:
-```xml
-<properties>
-    <develocity.quarkus.cache.enabled>true</develocity.quarkus.cache.enabled>
-    <develocity.quarkus.build.profile>prod</develocity.quarkus.build.profile>
-    <develocity.quarkus.dump.config.prefix>quarkus</develocity.quarkus.dump.config.prefix>
-    <develocity.quarkus.dump.config.suffix>config-dump-ci</develocity.quarkus.dump.config.suffix>
-    <develocity.quarkus.extra.output.dirs>helm</develocity.quarkus.extra.output.dirs>
-    <develocity.quarkus.extra.output.files>helm/kubernetes/${project.artifactId}/Chart.yaml,helm/kubernetes/${project.artifactId}/values.yaml</develocity.quarkus.extra.output.files>
-    <develocity.quarkus.native.build.in.container.required>false</develocity.quarkus.native.build.in.container.required>
-</properties>
-```
-
-### Configuration file
-
-A configuration file can be used instead by defining its location (relative to the project root folder) either:
-- as an environment variable:
-`DEVELOCITY_QUARKUS_CONFIG_FILE=.quarkus/develocity-ci.properties`
-- as a maven property:
-`<develocity.quarkus.config.file>.quarkus/extension-local.properties</develocity.quarkus.config.file>`
-
-Its content can be created like described in the [environment variables](#environment-variables) section.
-
-### Ignore properties in Quarkus configuration dump
-
-It is also possible to configure some properties to be excluded from configuration tracking (more details in the [Quarkus documentation](https://quarkus.io/guides/config-reference#filtering-configuration-options)). 
-This is relevant when a property is volatile but does not impact the produced artifact, see [this section](#quarkus-configuration-dump) for more details.
+A common one. A project version carrying a commit id gives every commit a different cache key, so `native-image` runs every time even when nothing the application is built from has changed. Two properties:
 
 ```xml
 <properties>
-    <quarkus.config-tracking.exclude>quarkus.container-image.tag,quarkus.application.version</quarkus.config-tracking.exclude>
+    <develocity.quarkus.version.independent.build>true</develocity.quarkus.version.independent.build>
+    <quarkus.application.version>stable</quarkus.application.version>
 </properties>
 ```
 
-## Troubleshooting
-Debug logging on the extension can be configured with the following property
+The first keeps the version out of the name the jar is built under, then links the executable back to the name the rest of the build expects. The second you have to set yourself: it defaults to the project version and is compiled into the application, so the extension cannot normalize it away — it only warns.
 
-```shell
-mvn -Dorg.slf4j.simpleLogger.log.com.gradle=debug clean install
-```
+See [a version that moves every build](doc/dynamic-version.md) for what moves, and for the knock-on effect on `quarkus.container-image.tag`.
 
-## Implementation details
+## What to expect
 
-The logic to make the Quarkus `build` goal cacheable is isolated to the [QuarkusBuildCache](./src/main/java/com/gradle/QuarkusBuildCache.java) class.
+All six applications of the [Quarkus super-heroes workshop](https://quarkus.io/quarkus-workshops/super-heroes/), built natively:
 
-### Quarkus configuration dump
-A key component of the caching mechanism is the Quarkus configuration dump file `.quarkus/quarkus-prod-config-dump`.
-This file is generated by the Quarkus `build` goal when the Maven property `quarkus.config-tracking.enabled` is `true`.
-It contains all the Quarkus properties used during the Quarkus `build` process.
-Some properties are discovered late in the `build` phase and can't be determined in advance, thus the need for a first full execution to generate the file.
+| | one `build` execution | split |
+|---|---|---|
+| whole repository, cold cache | 507s | 459s |
+| whole repository, nothing changed | 507s | **52s** |
 
-The presence of the file is required to mark the Quarkus `build` goal as cacheable. 
+Splitting costs nothing on a cold cache — the second augmentation adds about 2s to an 80s build — and a cache hit skips `native-image` entirely. Per application that is 70–100s down to 8s.
 
-The `track-config-changes` goal creates a file `target/quarkus-prod-config-check` containing all the properties from the `.quarkus/quarkus-prod-config-dump` with their actual value.
-If property values are identical in the two files, it means that the Quarkus configuration was not changed since the last Quarkus `build`, therefore the Quarkus `build` goal can be marked cacheable.
+### Cache hits and misses
 
-When the Quarkus `build` goal is marked cacheable, the regular caching process using [inputs](#goal-inputs) and [outputs](#goal-outputs) kicks in as described [here](https://docs.develocity.ai/maven/current/maven-extension/#using_the_build_cache).
+The key is the runner jar, the `native-image` arguments, the builder image and the Quarkus configuration the augmentation recorded. Anything that does not reach those reuses the executable:
 
-### Illustrated sequence of operations 
-Let's illustrate the extension behavior with the following sequence of builds:
+| | |
+|---|---|
+| An application whose sources and dependencies have not changed | **hit** — not every file in a repository is source code: documentation, CI configuration, scripts and the like reach nothing the native image is built from |
+| A `provided` or `test` dependency added or upgraded | **hit** — it changes the compile classpath, not the runtime closure the native image is built from |
+| A test-only change | **hit** — test classes are in neither the runner jar nor `lib/` |
+| The same commit built on another machine, or in another pipeline | **hit** — the in-container builder image pins the toolchain, so entries are shared |
+| A change to application code, or to a runtime dependency | **miss** — it reaches the runner jar |
+| A Quarkus build-time configuration change | **miss** — the augmentation records it, and it is part of the key |
 
-**Initialization build (one-off step):**
-- `track-config-changes` does nothing as `.quarkus/quarkus-prod-config-dump` is absent
-- Quarkus configuration from current and previous build differ
+It pays most on CI, where the main branch populates a remote cache that pull requests and developer machines read from. See the [benchmark](doc/benchmark.md) for the per-application numbers and where to apply it.
 
-  => The `build` goal is not cacheable
-- `build` executes and creates `.quarkus/quarkus-prod-config-dump`
+## Things to weigh
 
-![Run1](./doc/run-1.png)
+> [!WARNING]
+> **A native executable is a very large cache entry.** Copying one in and out of the local cache, and transferring it to and from a remote cache, is itself work — it has to be balanced against the duration of the `native-image` run it avoids, and against the storage the cache node has to carry.
 
-**First (post-initialization) build:**
-- `track-config-changes` creates `target/quarkus-prod-config-check`
-- Quarkus configuration from current and previous build are identical (assuming Quarkus configuration was unchanged)
+> [!WARNING]
+> **Do not expect a high hit rate.** Most code changes reach the runner jar and so change the cache key. A hit is still worth having: it skips the `native-image` run entirely, while the split adds only a short second augmentation when it misses. That asymmetry is what makes a low hit rate pay — but only as long as the entries earning those hits are worth the space they occupy.
 
-  => The `build` goal is cacheable
-- Cache lookup happens: *CACHE MISS*
-- `build` executes and creates `.quarkus/quarkus-prod-config-dump`
-- output is stored into the cache
+## Going further
 
-![Run2](./doc/run-2.png)
-
-**Next builds:**
-- `track-config-changes` creates `target/quarkus-prod-config-check`
-- Quarkus configuration from current and previous build are identical (assuming Quarkus configuration was unchanged)
-
-  => The `build` goal is cacheable
-- Cache lookup happens: *CACHE HIT*
-- `build` is not executed
-
-![Run3](./doc/run-3.png)
-
-### Goal Inputs
-
-This extension makes the Quarkus build goal cacheable by configuring the following goal inputs:
-
-#### General inputs
-- The compilation classpath
-- Generated sources directory
-- JDK version
-
-#### Inputs specific to the non in-container build strategy
-- OS details (name, version, arch)
-
-#### Quarkus properties
-See [here](https://quarkus.io/guides/config-reference#configuration-sources) for details
-
-Quarkus' properties are fetched from the *config dump* populated by the Quarkus `build` goal.
-The `build` goal is cacheable only if the `track-config-changes` goal generates a *config dump* identical to the one generated by the previous `build` execution.
-This ensures that the local Quarkus configuration hasn't changed since last build, otherwise a new `build` execution is required as a configuration can change the produced artifact.
-
-`target/quarkus-prod-config-check` is added as a goal input
-
-#### Quarkus file properties
-Some properties are pointing to a file which has to be declared as file input. This allows to have the file content part of the cache key (`RELATIVE_PATH` strategy).
-- `quarkus.docker.dockerfile-native-path`
-- `quarkus.docker.dockerfile-jvm-path`
-- `quarkus.openshift.jvm-dockerfile`
-- `quarkus.openshift.native-dockerfile`
-
-#### Quarkus extra dependencies
-
-##### Since Quarkus 3.13.0
-Quarkus dynamically adds some dependencies to the build which will be listed in the `target/quarkus-prod-dependencies.txt` file. 
-This file is created by the Quarkus `track-config-changes` goal and contains the absolute path to each dependency (one dependency per line).
-This fileset is added as goal input with a `RUNTIME_CLASSPATH` normalization strategy.
-
-##### Quarkus [3.9.0,3.13.0[
-Quarkus dynamically adds some dependencies to the build which will be listed in the `target/quarkus-prod-dependency-checksums.txt` file.
-This file is created by the Quarkus `track-config-changes` goal and contains the list of dependencies along with their checksum for snapshot versions (one dependency per line).
-This file is added as goal input with a `RELATIVE_PATH` normalization strategy.
-
-### Goal Outputs
-Here are the files added as output:
-- `target/<project.build.finalName>-runner`
-- `target/<project.build.finalName>.jar`
-- `target/<project.build.finalName>-runner.jar`
-- `target/quarkus-artifact.properties`
-
-> [!NOTE]
-> Some additional outputs can be configured. See the [configuration section](#extra-outputs) for more details.
-
-## Quarkus Test goals
-
-When the test goals (`maven-surefire-plugin` and `maven-failsafe-plugin`) are running some `@QuarkusTest` or `@QuarkusIntegrationTest`, 
-it is important for consistency to add [implicit dependencies](#quarkus-extra-dependencies) as goal [additional input](https://docs.develocity.ai/maven/current/maven-extension/#declaring_additional_inputs).
-
-Specifically for `maven-failsafe-plugin`, the Quarkus artifact descriptor `quarkus-artifact.properties` also needs to be added. 
-
-With Quarkus 3.9.0+, This can be achieved by declaring a property `addQuarkusInputs` on the test goal:
-
-```xml
-<plugins>
-    <plugin>
-        <artifactId>maven-surefire-plugin</artifactId>
-        <configuration>
-            <properties>
-                <addQuarkusInputs>true</addQuarkusInputs>>
-            </properties>
-        </configuration>
-    </plugin>
-    <plugin>
-        <artifactId>maven-failsafe-plugin</artifactId>
-        <configuration>
-            <properties>
-                <addQuarkusInputs>true</addQuarkusInputs>>
-            </properties>
-        </configuration>
-    </plugin>
-</plugins>
-```
-
-Prior to Quarkus 3.9.0:
-```xml
-<plugins>
-    <plugin>
-        <artifactId>maven-surefire-plugin</artifactId>
-        <configuration>
-            <properties>
-                <addQuarkusPackageInputs>true</addQuarkusPackageInputs>>
-            </properties>
-        </configuration>
-    </plugin>
-    <plugin>
-        <artifactId>maven-failsafe-plugin</artifactId>
-        <configuration>
-            <properties>
-                <addQuarkusPackageInputs>true</addQuarkusPackageInputs>>
-            </properties>
-        </configuration>
-    </plugin>
-</plugins>
-```
+| | |
+|---|---|
+| [Scope and requirements](doc/scope.md) | what is cached, what is not, and the in-container strategy |
+| [How it works](doc/how-it-works.md) | the two goals, the cache key, what a split build changes |
+| [Configuration](doc/configuration.md) | every switch |
+| [Benchmark](doc/benchmark.md) | the numbers above, and how they were measured |
+| [A version that moves every build](doc/dynamic-version.md) | a commit id in the project version defeats the cache, and what to do |
+| [Troubleshooting](doc/troubleshooting.md) | what the log lines mean |
 
 [android-cache-fix-plugin]: https://github.com/gradle/android-cache-fix-gradle-plugin
 [ccud-gradle-plugin]: https://github.com/gradle/common-custom-user-data-gradle-plugin
