@@ -152,7 +152,7 @@ A common one. A project version carrying a commit id gives every commit a differ
 </properties>
 ```
 
-The first keeps the version out of the name the jar is built under and out of the jar's `META-INF/maven/**`, then links the executable back to the name the rest of the build expects. The second you have to set yourself: it defaults to the project version and is compiled into the application, so the extension cannot normalize it away — it only warns.
+The first keeps the version out of the name the jar is built under, then links the executable back to the name the rest of the build expects. The second you have to set yourself: it defaults to the project version and is compiled into the application, so the extension cannot normalize it away — it only warns.
 
 See [a version that moves every build](doc/dynamic-version.md) for what moves, and for the knock-on effect on `quarkus.container-image.tag`.
 

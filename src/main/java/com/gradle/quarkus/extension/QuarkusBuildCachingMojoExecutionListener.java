@@ -61,8 +61,7 @@ public final class QuarkusBuildCachingMojoExecutionListener implements MojoExecu
         if (mode == QuarkusBuildGoalMode.NATIVE_SOURCES) {
             // the next execution is keyed on what this one just wrote, so order it before that happens
             if (extensionConfiguration.isNativeImageConfigNormalizationEnabled()) {
-                NativeImageConfigNormalizer.normalize(new File(project.getBasedir(), QuarkusBuildGoalMode.NATIVE_SOURCES_DIR),
-                        extensionConfiguration.isVersionIndependentBuildEnabled());
+                NativeImageConfigNormalizer.normalize(new File(project.getBasedir(), QuarkusBuildGoalMode.NATIVE_SOURCES_DIR));
             }
             return;
         }
