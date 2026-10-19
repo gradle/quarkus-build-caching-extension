@@ -14,6 +14,32 @@ The caching can be disabled by setting:
 DEVELOCITY_QUARKUS_CACHE_ENABLED=false
 ```
 
+### Disabling caching for one execution
+
+Every `build` execution other than the augmentation is keyed as the native image generation, so a cache hit skips it. An extra execution that must always run, one pushing a container image for instance, opts out in its own `properties`:
+```xml
+<execution>
+    <id>push-native-image</id>
+    <phase>package</phase>
+    <goals><goal>build</goal></goals>
+    <configuration>
+        <properties>
+            <quarkus.container-image.build>true</quarkus.container-image.build>
+            <quarkus.container-image.push>true</quarkus.container-image.push>
+            <quarkus.native.reuse-existing>true</quarkus.native.reuse-existing>
+            <develocity.quarkus.cache.enabled>false</develocity.quarkus.cache.enabled>
+        </properties>
+    </configuration>
+</execution>
+```
+
+The extension only reads it from the execution's `properties`, not from `systemProperties`. With `quarkus.native.reuse-existing`, the execution uses the executable the native image generation just built or restored rather than building it again.
+
+When more than one execution would be cached as the native image generation, the extension warns:
+```
+[WARNING] [quarkus-build-caching-extension] Quarkus build goal executions [quarkus-native-image, push-native-image] are all cached as the native image generation, a cache hit skips each of them: set develocity.quarkus.cache.enabled=false in the properties of those which must always run
+```
+
 ### Automatic configuration
 
 The extension registers the Quarkus goals its caching relies on, restores the artifact descriptor after a cache hit, and declares the Quarkus dependencies as inputs of the test goals — see [what the extension sets up for you](how-it-works.md#what-the-extension-sets-up-for-you). To configure everything in the pom instead:

@@ -141,6 +141,45 @@
             </dependencies>
         </profile>
 
+        <!-- A third build execution, as a container image push would be declared: anything but the
+             augmentation is keyed as the native image generation, so it opts out of caching to always run -->
+        <profile>
+            <id>extra-build-execution</id>
+            <activation>
+                <property>
+                    <name>extra-build-execution</name>
+                </property>
+            </activation>
+            <properties>
+                <extra-build-execution.cache.enabled>false</extra-build-execution.cache.enabled>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>io.quarkus</groupId>
+                        <artifactId>quarkus-maven-plugin</artifactId>
+                        <version>${quarkus.version}</version>
+                        <extensions>true</extensions>
+                        <executions>
+                            <execution>
+                                <id>push-native-image</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>build</goal>
+                                </goals>
+                                <configuration>
+                                    <properties>
+                                        <quarkus.native.reuse-existing>true</quarkus.native.reuse-existing>
+                                        <develocity.quarkus.cache.enabled>${extra-build-execution.cache.enabled}</develocity.quarkus.cache.enabled>
+                                    </properties>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
         <profile>
             <id>cache-disabled</id>
             <activation>

@@ -127,7 +127,11 @@ final class QuarkusBuildCaching {
                 configureNativeSourcesExecution(context);
                 break;
             case NATIVE_IMAGE:
-                configureNativeImageExecution(context, extensionConfiguration);
+                if (QuarkusBuildGoalMode.isCachingDisabledFor(context.getMojoExecution(), context.getProject())) {
+                    configureCachingDisabledExecution(context);
+                } else {
+                    configureNativeImageExecution(context, extensionConfiguration);
+                }
                 break;
             case UNSUPPORTED:
             default:
@@ -166,6 +170,16 @@ final class QuarkusBuildCaching {
     }
 
     /**
+     * A {@code build} execution which opted out of caching through its own {@code properties}, typically an extra
+     * execution pushing a container image, which a cache hit would otherwise skip.
+     */
+    private void configureCachingDisabledExecution(MojoMetadataProvider.Context context) {
+        LOGGER.info(QuarkusBuildCachingUtil.getLogMessage("Quarkus build goal execution '" + context.getMojoExecution().getExecutionId() + "' marked as not cacheable, as it sets "
+                + QuarkusBuildGoalMode.EXECUTION_KEY_CACHE_ENABLED + "=false"));
+        context.outputs(outputs -> outputs.notCacheableBecause("caching is disabled for this execution"));
+    }
+
+    /**
      * Second execution of a split native build: the expensive one. The native executable is fully determined by the
      * {@code native-image} arguments, the runner jar and its dependencies, all of which the first execution has just
      * written to {@code target/native-sources}. Keying on those instead of on the whole compile classpath makes the
@@ -176,6 +190,7 @@ final class QuarkusBuildCaching {
      */
     private void configureNativeImageExecution(MojoMetadataProvider.Context context, QuarkusBuildCachingConfiguration extensionConfiguration) {
         warnIfQuarkusIsTooOld(context);
+        warnIfSeveralExecutionsAreCached(context);
 
         // The key of this execution is the jar the native-sources execution produces. Without it there is nothing to
         // key on, which happens when the build is not native or when this execution is run on its own
@@ -223,6 +238,19 @@ final class QuarkusBuildCaching {
             addQuarkusConfigurationFilesInputs(inputs, quarkusRecordedProperties);
         });
         configureNativeImageOutputs(context);
+    }
+
+    /**
+     * Every {@code build} execution but the augmentation is keyed as the native image generation. An extra one, a
+     * container image push for instance, would then be skipped on a cache hit without anything saying so.
+     */
+    private void warnIfSeveralExecutionsAreCached(MojoMetadataProvider.Context context) {
+        List<String> executionIds = QuarkusBuildGoalMode.cachedNativeImageExecutionIds(context.getProject());
+        // said once per project, by the first of them
+        if (executionIds.size() > 1 && executionIds.get(0).equals(context.getMojoExecution().getExecutionId())) {
+            LOGGER.warn(QuarkusBuildCachingUtil.getLogMessage("Quarkus build goal executions " + executionIds + " are all cached as the native image generation, a cache hit skips each of them: set "
+                    + QuarkusBuildGoalMode.EXECUTION_KEY_CACHE_ENABLED + "=false in the properties of those which must always run"));
+        }
     }
 
     /**

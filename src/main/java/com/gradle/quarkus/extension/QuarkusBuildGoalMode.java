@@ -45,6 +45,11 @@ public enum QuarkusBuildGoalMode {
     private static final String QUARKUS_MAVEN_PLUGIN = "quarkus-maven-plugin";
     private static final String BUILD_GOAL = "build";
     private static final String SYSTEM_PROPERTIES = "systemProperties";
+    private static final String PROPERTIES = "properties";
+    private static final String PHASE_NONE = "none";
+
+    // Read from the execution's own properties, so that one build execution can opt out while the others are cached
+    static final String EXECUTION_KEY_CACHE_ENABLED = "develocity.quarkus.cache.enabled";
 
     // quarkus.package.type=native-sources is replaced by quarkus.native.sources-only in Quarkus 3.9
     private static final String QUARKUS_CONFIG_KEY_NATIVE_SOURCES_ONLY = "quarkus.native.sources-only";
@@ -105,6 +110,40 @@ public enum QuarkusBuildGoalMode {
     }
 
     /**
+     * An execution opts out of caching by setting {@code develocity.quarkus.cache.enabled=false} in its own
+     * {@code properties}. This is meant for an extra {@code build} execution, one pushing a container image for
+     * instance: anything that is not the augmentation is keyed as the native image generation, and a cache hit would
+     * skip it.
+     *
+     * @return whether the given execution disables caching for itself
+     */
+    static boolean isCachingDisabledFor(MojoExecution mojoExecution, MavenProject project) {
+        PluginExecution execution = quarkusBuildExecution(project, mojoExecution.getExecutionId());
+        return execution != null && disablesCaching(configurationOf(execution.getConfiguration()));
+    }
+
+    /**
+     * Executions bound to the {@code none} phase never run, and those opting out of caching are not keyed at all.
+     *
+     * @return the ids of the {@code build} executions which would be cached as the native image generation
+     */
+    static List<String> cachedNativeImageExecutionIds(MavenProject project) {
+        String nativeSourcesExecutionId = nativeSourcesExecutionId(project);
+        if (nativeSourcesExecutionId == null) {
+            return Collections.emptyList();
+        }
+        List<String> executionIds = new ArrayList<>();
+        for (PluginExecution execution : quarkusBuildExecutions(project)) {
+            if (!nativeSourcesExecutionId.equals(execution.getId())
+                    && !PHASE_NONE.equals(execution.getPhase())
+                    && !disablesCaching(configurationOf(execution.getConfiguration()))) {
+                executionIds.add(execution.getId());
+            }
+        }
+        return executionIds;
+    }
+
+    /**
      * @return the {@code quarkus-maven-plugin} declared by the project, or {@code null} when there is none
      */
     static Plugin quarkusMavenPlugin(MavenProject project) {
@@ -145,6 +184,26 @@ public enum QuarkusBuildGoalMode {
      */
     static File nativeBuilderImageFile(MavenProject project) {
         return new File(project.getBasedir(), NATIVE_SOURCES_DIR + "/" + NATIVE_BUILDER_IMAGE_FILE_NAME);
+    }
+
+    private static boolean disablesCaching(Xpp3Dom configuration) {
+        if (configuration == null) {
+            return false;
+        }
+        Xpp3Dom properties = configuration.getChild(PROPERTIES);
+        if (properties == null) {
+            return false;
+        }
+        return Boolean.FALSE.toString().equals(valueOf(properties.getChild(EXECUTION_KEY_CACHE_ENABLED)));
+    }
+
+    private static PluginExecution quarkusBuildExecution(MavenProject project, String executionId) {
+        for (PluginExecution execution : quarkusBuildExecutions(project)) {
+            if (execution.getId().equals(executionId)) {
+                return execution;
+            }
+        }
+        return null;
     }
 
     private static List<PluginExecution> quarkusBuildExecutions(MavenProject project) {

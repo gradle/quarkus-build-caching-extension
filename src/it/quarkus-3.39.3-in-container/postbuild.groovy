@@ -150,9 +150,23 @@ println('Verifying the native-image configuration ordering can be disabled...')
 assert !getContent('12-split-native-build-no-json-ordering.log')
         .contains('[quarkus-build-caching-extension] Ordered the native-image configuration of')
 
+// An extra build execution opting out of caching always runs, and only the native image generation is cached
+println('Verifying an extra build execution can opt out of caching on 13-split-native-build-extra-execution-opted-out.log...')
+String optedOut = getContent('13-split-native-build-extra-execution-opted-out.log')
+assert optedOut.contains("[quarkus-build-caching-extension] Quarkus build goal execution 'push-native-image' marked as not cacheable, as it sets develocity.quarkus.cache.enabled=false")
+assert optedOut.contains('[quarkus-build-caching-extension] Quarkus native-image build goal marked as cacheable')
+assert optedOut =~ /build \(push-native-image\)/
+assert !optedOut.contains('are all cached as the native image generation')
+
+// Left cacheable, it would be skipped on a cache hit, so the extension says so
+println('Verifying an extra cacheable build execution is warned about on 14-split-native-build-extra-execution-cached.log...')
+// once per project, not once per execution
+assert getContent('14-split-native-build-extra-execution-cached.log')
+        .count('[quarkus-build-caching-extension] Quarkus build goal executions [quarkus-native-image, push-native-image] are all cached as the native image generation') == 1
+
 // The version is kept out of the key, and the executable is available under both names
-println('Verifying the version-independent build on 13-split-native-build-version-independent.log...')
-String versionIndependent = getContent('13-split-native-build-version-independent.log')
+println('Verifying the version-independent build on 15-split-native-build-version-independent.log...')
+String versionIndependent = getContent('15-split-native-build-version-independent.log')
 assert versionIndependent.contains("Building as 'quarkus-test-native-split' rather than 'quarkus-test-native-split-0.1-SNAPSHOT'")
 assert versionIndependent.contains('Linked quarkus-test-native-split-0.1-SNAPSHOT-runner to the cached quarkus-test-native-split-runner')
 assert new File(basedir, 'target/quarkus-test-native-split-runner').exists()
