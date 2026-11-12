@@ -33,6 +33,8 @@ jobs:
           image-names: |
             ${{ github.repository }}~${{ github.workflow }}~${{ github.job }}~${{ github.ref }}~${{ runner.os }}~${{ runner.arch }}
             ${{ github.repository }}~${{ github.workflow }}~${{ github.job }}~refs/heads/${{ github.base_ref || github.event.repository.default_branch }}~${{ runner.os }}~${{ runner.arch }}
+          # The Quarkus native builder images have layers over the Edge's 150 MiB entry limit, so they can never be restored
+          additional-cli-args: --no-autodetect=DOCKER
       - name: Install Quarkus snapshots
         uses: quarkusio/install-quarkus-snapshots-action@de83c2a9a1528f92fa835160b1239c5bdb680ded # main
       - name: Get GitHub OIDC token for Develocity
