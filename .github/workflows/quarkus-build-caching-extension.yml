@@ -22,6 +22,18 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
+      - name: Setup Develocity Artifact Cache
+        uses: gradle/develocity-artifact-cache-github-action@0366b879b8a1dce1303e672064645c5cc228e0b9 # v1.2.0
+        with:
+          develocity-edge-url: https://usw2-edge.solutions-team.gradle.com
+          develocity-auth: workload-identity
+          develocity-oidc-audience: https://solutions.develocity.cloud
+          # Auto-generated image names omit the repository, so they collide across repositories on the same Edge
+          image-names: |
+            ${{ github.repository }}~${{ github.workflow }}~${{ github.job }}~${{ github.ref }}~${{ runner.os }}~${{ runner.arch }}
+            ${{ github.repository }}~${{ github.workflow }}~${{ github.job }}~refs/heads/${{ github.base_ref || github.event.repository.default_branch }}~${{ runner.os }}~${{ runner.arch }}
+          # The Quarkus native builder images have layers over the Edge's 150 MiB entry limit, so they can never be restored
+          additional-cli-args: --no-autodetect=DOCKER
       - name: Get GitHub OIDC token for Develocity
         id: develocity-oidc
         shell: bash
