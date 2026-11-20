@@ -101,7 +101,7 @@ Two steps. Declare the extension in `.mvn/extensions.xml`:
     <extension>
         <groupId>com.gradle</groupId>
         <artifactId>develocity-maven-extension</artifactId>
-        <version>2.5.0</version>
+        <version>2.6.1</version>
     </extension>
     <extension>
         <groupId>com.gradle</groupId>
