@@ -16,6 +16,8 @@ import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Caching instructions for the Quarkus build goal.
@@ -53,6 +55,9 @@ final class QuarkusBuildCaching {
 
     // Named in the warning raised when a native image is cached without the in-container build strategy
     private static final String DEVELOCITY_QUARKUS_NATIVE_BUILD_IN_CONTAINER_REQUIRED_KEY = "DEVELOCITY_QUARKUS_NATIVE_BUILD_IN_CONTAINER_REQUIRED";
+
+    // the metadata provider can be called more than once per execution, so this is what keeps the warning to one per project
+    private final Set<String> projectsWarnedOfSeveralCachedExecutions = ConcurrentHashMap.newKeySet();
 
     void configureBuildCache(BuildCacheApi buildCache) {
         buildCache.registerNormalizationProvider(context -> {
@@ -246,8 +251,7 @@ final class QuarkusBuildCaching {
      */
     private void warnIfSeveralExecutionsAreCached(MojoMetadataProvider.Context context) {
         List<String> executionIds = QuarkusBuildGoalMode.cachedNativeImageExecutionIds(context.getProject());
-        // said once per project, by the first of them
-        if (executionIds.size() > 1 && executionIds.get(0).equals(context.getMojoExecution().getExecutionId())) {
+        if (executionIds.size() > 1 && projectsWarnedOfSeveralCachedExecutions.add(context.getProject().getId())) {
             LOGGER.warn(QuarkusBuildCachingUtil.getLogMessage("Quarkus build goal executions " + executionIds + " are all cached as the native image generation, a cache hit skips each of them: set "
                     + QuarkusBuildGoalMode.EXECUTION_KEY_CACHE_ENABLED + "=false in the properties of those which must always run"));
         }
