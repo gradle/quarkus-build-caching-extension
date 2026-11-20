@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.gradle</groupId>
     <artifactId>quarkus-build-caching-extension</artifactId>
-    <version>1.13-SNAPSHOT</version>
+    <version>2.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>${project.groupId}:${project.artifactId}</name>
@@ -102,11 +102,14 @@
                     <cloneProjectsTo>${project.build.directory}/it</cloneProjectsTo>
                     <invokerPropertiesFile>invoker.properties</invokerPropertiesFile>
                     <streamLogs>true</streamLogs>
-                    <!-- quarkus-latest builds against io.quarkus:*:999-SNAPSHOT, which is only
-                         available once the Quarkus snapshots have been installed. It is run by
-                         the nightly workflow via -Dinvoker.test=quarkus-latest. -->
+                    <!-- None of these runs on a stock machine: the quarkus-latest-* projects build
+                         against io.quarkus:*:999-SNAPSHOT, and the *-in-host ones need a local
+                         native-image. The nightly workflow installs what they need and selects them
+                         with -Dinvoker.test. -->
                     <pomExcludes>
-                        <pomExclude>quarkus-latest/pom.xml</pomExclude>
+                        <pomExclude>quarkus-latest-in-container/pom.xml</pomExclude>
+                        <pomExclude>quarkus-latest-in-host/pom.xml</pomExclude>
+                        <pomExclude>quarkus-3.39.3-in-host/pom.xml</pomExclude>
                     </pomExcludes>
                     <filterProperties>
                         <develocity-options>-Dmaven.ext.class.path=../../quarkus-build-caching-extension-${project.version}.jar -Ddevelocity.cache.local.directory=${project.build.directory}/build-cache -Ddevelocity.cache.remote.enabled=false</develocity-options>
