@@ -86,11 +86,16 @@ flowchart LR
 
 The first execution is cheap and always runs. The second is the one that costs minutes, and it is keyed only on what the first wrote — not on the compile classpath — so a change that does not reach the runner jar reuses the executable.
 
-## Requirements
+## Compatibility
 
-- **Quarkus 3.39.3 or above.** Below it the augmentation output is not stable enough for the cache to ever hit — see [scope and requirements](doc/scope.md).
-- `com.gradle:develocity-maven-extension`
-- An in-container native build by default, which pins the toolchain and makes entries shareable between machines. The requirement can be lifted when every environment sharing the cache has identical system inputs — see [lifting the in-container requirement](doc/configuration.md#lifting-the-in-container-requirement).
+| Extension | Quarkus | Develocity Maven extension | Native build |
+|---|---|---|---|
+| 2.x | 3.39.3 or above | 1.21 or above | Split `build` goal, in-container by default |
+| 1.x | 3.2.4 or above | See the [1.x README](https://github.com/gradle/quarkus-build-caching-extension/blob/v1.12/README.md#requirements) | Single `build` goal |
+
+Below Quarkus 3.39.3 the augmentation output is not stable enough for the cache to ever hit — see [scope and requirements](doc/scope.md).
+
+The in-container build pins the toolchain and makes entries shareable between machines. The requirement can be lifted when every environment sharing the cache has identical system inputs — see [lifting the in-container requirement](doc/configuration.md#lifting-the-in-container-requirement).
 
 ## Setup
 
