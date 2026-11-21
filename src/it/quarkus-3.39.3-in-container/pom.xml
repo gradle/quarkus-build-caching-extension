@@ -9,7 +9,7 @@
 
     <properties>
         <!-- quarkus.native.sources-only requires Quarkus 3.9.0 or above -->
-        <quarkus.version>3.39.3</quarkus.version>
+        <quarkus.version>3.40.1.2</quarkus.version>
         <maven.compiler.release>17</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <!-- The native image generation is cacheable on its own, the augmentation is cheap enough to always run -->
@@ -135,7 +135,7 @@
                 <dependency>
                     <groupId>org.apache.commons</groupId>
                     <artifactId>commons-lang3</artifactId>
-                    <version>3.19.0</version>
+                    <version>3.22.0</version>
                     <scope>provided</scope>
                 </dependency>
             </dependencies>
