@@ -14,18 +14,20 @@ on:
 jobs:
   # The augmentation output is the cache key, so a Quarkus change that makes it less reproducible
   # stops the native image ever being reused. This is what catches that before a release does.
-  # GraalVM rather than a plain JDK: the in-host project builds the native image on the runner.
+  # Mandrel rather than a plain JDK: the in-host project builds the native image on the runner.
+  # Latest Mandrel, not setup-java's graalvm-community (stuck on 25.0.2), as Quarkus rejects native
+  # toolchains older than the version it currently supports. Same for the local-toolchain job.
   quarkus-snapshot:
     name: Quarkus snapshot
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - name: Set up GraalVM 25
-        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6
+      - name: Set up Mandrel 25
+        uses: graalvm/setup-graalvm@60e76998d25690099182b796e99b8804da582d90 # v1.6.10
         with:
           java-version: '25'
-          distribution: 'graalvm-community'
+          distribution: 'mandrel'
       - name: Install Quarkus snapshots
         uses: quarkusio/install-quarkus-snapshots-action@de83c2a9a1528f92fa835160b1239c5bdb680ded # main
       - name: Get GitHub OIDC token for Develocity
@@ -66,11 +68,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - name: Set up GraalVM 25
-        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6
+      - name: Set up Mandrel 25
+        uses: graalvm/setup-graalvm@60e76998d25690099182b796e99b8804da582d90 # v1.6.10
         with:
           java-version: '25'
-          distribution: 'graalvm-community'
+          distribution: 'mandrel'
       - name: Get GitHub OIDC token for Develocity
         id: develocity-oidc
         shell: bash
