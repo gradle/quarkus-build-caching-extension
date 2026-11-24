@@ -4,8 +4,22 @@
         <component>
             <role>com.gradle.develocity.agent.maven.api.DevelocityListener</role>
             <role-hint>quarkus-build-caching-develocity-listener</role-hint>
-            <implementation>com.gradle.QuarkusBuildCachingDevelocityListener</implementation>
+            <implementation>com.gradle.quarkus.extension.QuarkusBuildCachingDevelocityListener</implementation>
             <description>Makes the Quarkus goals cacheable</description>
+            <isolated-realm>false</isolated-realm>
+        </component>
+        <component>
+            <role>org.apache.maven.AbstractMavenLifecycleParticipant</role>
+            <role-hint>quarkus-build-caching-lifecycle-participant</role-hint>
+            <implementation>com.gradle.quarkus.extension.QuarkusBuildCachingLifecycleParticipant</implementation>
+            <description>Registers the Quarkus goals the caching relies on</description>
+            <isolated-realm>false</isolated-realm>
+        </component>
+        <component>
+            <role>org.apache.maven.execution.MojoExecutionListener</role>
+            <role-hint>quarkus-build-caching-mojo-execution-listener</role-hint>
+            <implementation>com.gradle.quarkus.extension.QuarkusBuildCachingMojoExecutionListener</implementation>
+            <description>Orders the native-image configuration and restores the Quarkus artifact descriptor</description>
             <isolated-realm>false</isolated-realm>
         </component>
     </components>

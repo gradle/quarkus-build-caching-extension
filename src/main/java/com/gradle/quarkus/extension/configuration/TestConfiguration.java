@@ -1,0 +1,69 @@
+package com.gradle.quarkus.extension.configuration;
+
+import com.gradle.develocity.agent.maven.api.cache.MojoMetadataProvider;
+import com.gradle.quarkus.extension.QuarkusBuildGoalMode;
+import org.codehaus.plexus.util.xml.Xpp3Dom;
+
+public class TestConfiguration {
+
+    private static final String TEST_GOAL_KEY_ADD_QUARKUS_INPUTS = "addQuarkusInputs";
+    private static final String TEST_GOAL_KEY_ADD_QUARKUS_PACKAGE_INPUTS = "addQuarkusPackageInputs";
+    private static final String TEST_GOAL_KEY_QUARKUS_PACKAGE_PATTERN = "quarkusPackagePattern";
+    private static final String TEST_GOAL_DEFAULT_QUARKUS_PACKAGE_JAR_PATTERN = "*.jar";
+    private static final String TEST_GOAL_DEFAULT_QUARKUS_PACKAGE_EXE_PATTERN = "*-runner";
+
+    private boolean addQuarkusInputs;
+    private boolean addQuarkusPackageInputs;
+    private String quarkusPackagePattern;
+
+    public TestConfiguration(MojoMetadataProvider.Context context, QuarkusBuildCachingConfiguration extensionConfiguration) {
+        if (extensionConfiguration.isQuarkusCacheEnabled()) {
+            // Quarkus adds dependencies to the build dynamically, and a @QuarkusTest runs against them, so the test
+            // goals of a project whose native build is cached are keyed on them as well. Declaring the property
+            // explicitly still wins, including to turn it off.
+            addQuarkusInputs = extensionConfiguration.isAutoConfigureEnabled()
+                    && QuarkusBuildGoalMode.isSplitNativeBuild(context.getProject());
+
+            Xpp3Dom properties = context.getMojoExecution().getConfiguration().getChild("properties");
+            if (properties != null) {
+                Xpp3Dom addQuarkusInputsProperty = properties.getChild(TEST_GOAL_KEY_ADD_QUARKUS_INPUTS);
+                if (addQuarkusInputsProperty != null) {
+                    addQuarkusInputs = Boolean.parseBoolean(addQuarkusInputsProperty.getValue());
+                }
+                Xpp3Dom addQuarkusPackageInputsProperty = properties.getChild(TEST_GOAL_KEY_ADD_QUARKUS_PACKAGE_INPUTS);
+                if (addQuarkusPackageInputsProperty != null) {
+                    addQuarkusPackageInputs = Boolean.parseBoolean(addQuarkusPackageInputsProperty.getValue());
+                }
+                Xpp3Dom quarkusPackagePatternProperty = properties.getChild(TEST_GOAL_KEY_QUARKUS_PACKAGE_PATTERN);
+                if (quarkusPackagePatternProperty != null) {
+                    quarkusPackagePattern = quarkusPackagePatternProperty.getValue();
+                }
+            }
+        }
+    }
+
+    public boolean isAddQuarkusInputs() {
+        return addQuarkusInputs;
+    }
+
+    public boolean isAddQuarkusPackageInputs() {
+        return addQuarkusPackageInputs;
+    }
+
+    public String getQuarkusJarFilePattern() {
+        return quarkusPackagePattern != null ? quarkusPackagePattern : TEST_GOAL_DEFAULT_QUARKUS_PACKAGE_JAR_PATTERN;
+    }
+
+    public String getQuarkusExeFilePattern() {
+        return quarkusPackagePattern != null ? quarkusPackagePattern : TEST_GOAL_DEFAULT_QUARKUS_PACKAGE_EXE_PATTERN;
+    }
+
+    @Override
+    public String toString() {
+        return "TestConfiguration{" +
+                "addQuarkusInputs=" + addQuarkusInputs +
+                ", addQuarkusPackageInputs=" + addQuarkusPackageInputs +
+                ", quarkusPackagePattern='" + quarkusPackagePattern + '\'' +
+                '}';
+    }
+}

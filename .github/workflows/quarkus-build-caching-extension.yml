@@ -18,7 +18,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Set up JDK 21
-        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6
         with:
           java-version: '21'
           distribution: 'temurin'
@@ -32,7 +32,7 @@ jobs:
           image-names: |
             ${{ github.repository }}~${{ github.workflow }}~${{ github.job }}~${{ github.ref }}~${{ runner.os }}~${{ runner.arch }}
             ${{ github.repository }}~${{ github.workflow }}~${{ github.job }}~refs/heads/${{ github.base_ref || github.event.repository.default_branch }}~${{ runner.os }}~${{ runner.arch }}
-          # The Quarkus native builder images have layers over the Edge's 150 MiB entry limit, so they can never be restored
+          # Leave the Quarkus native builder images to the registry: their 180-260 MiB layers would dominate every restore
           additional-cli-args: --no-autodetect=DOCKER
       - name: Get GitHub OIDC token for Develocity
         id: develocity-oidc

@@ -1,3 +1,7 @@
+### 2.0
+- Add support for split native builds: cache the native image generation on its own, keyed on the jar and the configuration recorded by a `quarkus.native.sources-only` execution rather than on the compile classpath
+- **Breaking**: drop support for caching a single `quarkus:build` execution. The native image generation is cached only when the `build` goal is declared twice; any other layout is left uncached
+
 ### 1.12
 - Add support for fast-jar package type
 
